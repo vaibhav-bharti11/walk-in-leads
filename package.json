@@ -1,0 +1,16 @@
+{
+  "name": "avantika-walk-in-leads",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "gsap": "^3.13.0"
+  },
+  "engines": {
+    "node": ">=25"
+  }
+}
