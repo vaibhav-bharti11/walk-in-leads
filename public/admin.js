@@ -9,6 +9,7 @@ const rows = document.querySelector('#lead-rows');
 const ledgerStatus = document.querySelector('#ledger-status');
 const exportLink = document.querySelector('#export-link');
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+let dashboardRevealed = false;
 
 function showLogin(message = '') {
   dashboardView.hidden = true;
@@ -20,7 +21,18 @@ function showLogin(message = '') {
 function showDashboard() {
   loginView.hidden = true;
   dashboardView.hidden = false;
-  if (!reduceMotion) gsap.from('.ledger-shell > *', { autoAlpha: 0, y: 12, duration: 0.42, stagger: 0.045, ease: 'power2.out' });
+  if (!dashboardRevealed && !reduceMotion) {
+    gsap.from('.ledger-shell > *', {
+      autoAlpha: 0,
+      y: 12,
+      duration: 0.42,
+      stagger: 0.045,
+      ease: 'power2.out',
+      immediateRender: false,
+      clearProps: 'opacity,visibility,transform',
+    });
+  }
+  dashboardRevealed = true;
 }
 
 function formatMobile(mobile) {
