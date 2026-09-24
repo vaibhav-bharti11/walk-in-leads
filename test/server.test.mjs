@@ -145,3 +145,22 @@ test('serves the installable guest shell and its local GSAP runtime', async () =
     await app.close();
   }
 });
+
+test('serves the protected guest-book shell with accessible controls', async () => {
+  const app = await startTestApp();
+  try {
+    const page = await fetch(`${app.baseUrl}/admin`);
+    assert.equal(page.status, 200);
+    const html = await page.text();
+    assert.match(html, /<form[^>]*id="login-form"/);
+    assert.match(html, /<label[^>]*for="admin-password"[^>]*>Password<\/label>/);
+    assert.match(html, /<h1[^>]*>Guest book<\/h1>/);
+    assert.match(html, /<label[^>]*for="outlet-filter"[^>]*>Outlet<\/label>/);
+    for (const heading of ['Guest', 'Mobile', 'Outlet', 'Arrived']) assert.match(html, new RegExp(`<th[^>]*>${heading}</th>`));
+    assert.match(html, /Download guest list/);
+    assert.match(html, /Sign out/);
+    assert.equal((await fetch(`${app.baseUrl}/admin.js`)).status, 200);
+  } finally {
+    await app.close();
+  }
+});

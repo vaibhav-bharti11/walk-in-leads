@@ -12,6 +12,8 @@ const BODY_LIMIT = 16 * 1024;
 const SESSION_AGE_SECONDS = 8 * 60 * 60;
 const STATIC_FILES = new Map([
   ['/', ['public/index.html', 'text/html; charset=utf-8']],
+  ['/admin', ['public/admin.html', 'text/html; charset=utf-8']],
+  ['/admin.js', ['public/admin.js', 'text/javascript; charset=utf-8']],
   ['/guest.js', ['public/guest.js', 'text/javascript; charset=utf-8']],
   ['/styles.css', ['public/styles.css', 'text/css; charset=utf-8']],
   ['/manifest.webmanifest', ['public/manifest.webmanifest', 'application/manifest+json']],
