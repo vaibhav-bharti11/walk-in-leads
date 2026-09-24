@@ -121,3 +121,27 @@ test('protects admin listing and filtered CSV export with a signed session', asy
     await app.close();
   }
 });
+
+test('serves the installable guest shell and its local GSAP runtime', async () => {
+  const app = await startTestApp();
+  try {
+    const page = await fetch(`${app.baseUrl}/`);
+    assert.equal(page.status, 200);
+    const html = await page.text();
+    assert.match(html, /Your table is almost ready\./);
+    assert.match(html, /Leave us your name and number, and we’ll take care of the rest\./);
+    assert.match(html, /<label[^>]*for="guest-name"[^>]*>Your name<\/label>/);
+    assert.match(html, /<label[^>]*for="guest-mobile"[^>]*>Mobile number<\/label>/);
+    assert.match(html, /Add me to the guest list/);
+    assert.match(html, /manifest\.webmanifest/);
+    for (const outlet of ['Kampai', 'Basque', 'Embassy — Connaught Place', 'Embassy — Elan Epic', 'Embassy — Vasant Kunj']) {
+      assert.match(html, new RegExp(outlet));
+    }
+
+    for (const path of ['/manifest.webmanifest', '/sw.js', '/guest.js', '/styles.css', '/icons/icon.svg', '/vendor/gsap.min.js']) {
+      assert.equal((await fetch(`${app.baseUrl}${path}`)).status, 200, path);
+    }
+  } finally {
+    await app.close();
+  }
+});

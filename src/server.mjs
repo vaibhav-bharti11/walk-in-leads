@@ -1,5 +1,6 @@
 import { createHmac, scryptSync, timingSafeEqual } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -9,6 +10,15 @@ import { createLeadStore, escapeCsvCell } from './domain.mjs';
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const BODY_LIMIT = 16 * 1024;
 const SESSION_AGE_SECONDS = 8 * 60 * 60;
+const STATIC_FILES = new Map([
+  ['/', ['public/index.html', 'text/html; charset=utf-8']],
+  ['/guest.js', ['public/guest.js', 'text/javascript; charset=utf-8']],
+  ['/styles.css', ['public/styles.css', 'text/css; charset=utf-8']],
+  ['/manifest.webmanifest', ['public/manifest.webmanifest', 'application/manifest+json']],
+  ['/sw.js', ['public/sw.js', 'text/javascript; charset=utf-8']],
+  ['/icons/icon.svg', ['public/icons/icon.svg', 'image/svg+xml']],
+  ['/vendor/gsap.min.js', ['node_modules/gsap/dist/gsap.min.js', 'text/javascript; charset=utf-8']],
+]);
 
 function json(response, status, body) {
   const payload = JSON.stringify(body);
@@ -150,6 +160,17 @@ export function createApp({ databasePath, adminPassword, sessionSecret, secureCo
         return empty(response, 204, {
           'set-cookie': `avantika_session=; Max-Age=0; ${cookieFlags}`,
         });
+      }
+
+      if (request.method === 'GET' && STATIC_FILES.has(url.pathname)) {
+        const [relativePath, contentType] = STATIC_FILES.get(url.pathname);
+        const payload = await readFile(join(ROOT, relativePath));
+        response.writeHead(200, {
+          'content-type': contentType,
+          'content-length': payload.length,
+          'cache-control': url.pathname === '/sw.js' ? 'no-cache' : 'public, max-age=3600',
+        });
+        return response.end(payload);
       }
 
       return json(response, 404, { error: 'Not found.' });
