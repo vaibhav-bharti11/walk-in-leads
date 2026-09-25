@@ -3,12 +3,59 @@ const form = document.querySelector('#lead-form');
 const nameInput = document.querySelector('#guest-name');
 const mobileInput = document.querySelector('#guest-mobile');
 const submitButton = form.querySelector('button[type="submit"]');
-const selectedVenue = document.querySelector('#selected-venue');
+const outletSelect = document.querySelector('#outlet-select');
 const checkInView = document.querySelector('#check-in-view');
 const successView = document.querySelector('#success-view');
 const status = document.querySelector('#form-status');
 const reduceTransparency = window.matchMedia('(prefers-reduced-transparency: reduce)');
-let outlet = 'Kampai';
+const themeColor = document.querySelector('meta[name="theme-color"]');
+const themes = {
+  Kampai: {
+    brand: 'kampai',
+    location: 'Plate & Pour · Aerocity',
+    note: 'Japanese hospitality, in the heart of Delhi.',
+    title: 'Come in. Stay awhile.',
+    copy: 'Leave us your name and number—we’ll make sure every visit feels familiar.',
+    action: 'Join Kampai’s guest list',
+    color: '#1c1a19',
+  },
+  Basque: {
+    brand: 'basque',
+    location: 'Restaurant · Garden · Dehradun',
+    note: 'Garden dining beneath the Dehradun sky.',
+    title: 'Your evening begins here.',
+    copy: 'A name and number is all we need to make your next welcome feel personal.',
+    action: 'Join Basque’s guest list',
+    color: '#1f4c42',
+  },
+  'Embassy — Connaught Place': {
+    brand: 'embassy',
+    location: 'Connaught Place · Since 1948',
+    note: 'A Delhi tradition, welcoming generations.',
+    title: 'Some welcomes never go out of style.',
+    copy: 'Share your details once, and let The Embassy remember the pleasure of having you.',
+    action: 'Join The Embassy guest list',
+    color: '#b11226',
+  },
+  'Embassy — Elan Epic': {
+    brand: 'embassy',
+    location: 'Elan Epic, Gurugram · Since 1948',
+    note: 'A Delhi tradition, now in Gurugram.',
+    title: 'Some welcomes never go out of style.',
+    copy: 'Share your details once, and let The Embassy remember the pleasure of having you.',
+    action: 'Join The Embassy guest list',
+    color: '#b11226',
+  },
+  'Embassy — Vasant Kunj': {
+    brand: 'embassy',
+    location: 'DLF Promenade, Vasant Kunj · Since 1948',
+    note: 'A Delhi tradition, welcoming generations.',
+    title: 'Some welcomes never go out of style.',
+    copy: 'Share your details once, and let The Embassy remember the pleasure of having you.',
+    action: 'Join The Embassy guest list',
+    color: '#b11226',
+  },
+};
 let reduceMotion = false;
 
 document.documentElement.classList.toggle('reduce-transparency', reduceTransparency.matches);
@@ -22,11 +69,43 @@ mm.add(
   (context) => {
     reduceMotion = context.conditions.reduceMotion;
     if (!reduceMotion) {
-      gsap.from('.venue-option', { autoAlpha: 0, x: -14, duration: 0.45, stagger: 0.045, ease: 'power2.out' });
-      gsap.from('.invitation-inner > div:not([hidden]) > *', { autoAlpha: 0, y: 16, duration: 0.55, stagger: 0.06, ease: 'power2.out' });
+      gsap.from('.guest-header', { autoAlpha: 0, y: -12, duration: 0.55, ease: 'power2.out' });
+      gsap.from('.guest-card', { autoAlpha: 0, y: 18, duration: 0.7, ease: 'power2.out' });
     }
   },
 );
+
+function renderTheme(value) {
+  const theme = themes[value];
+  document.body.dataset.brand = theme.brand;
+  document.querySelector('#brand-location').textContent = theme.location;
+  document.querySelector('#brand-note').textContent = theme.note;
+  document.querySelector('#welcome-title').textContent = theme.title;
+  document.querySelector('#welcome-copy').textContent = theme.copy;
+  document.querySelector('#submit-label').textContent = theme.action;
+  themeColor.content = theme.color;
+}
+
+function setTheme(value) {
+  if (reduceMotion) return renderTheme(value);
+  const changing = ['.brand-backdrop', '.guest-card__content'];
+  gsap.to(changing, {
+    autoAlpha: 0,
+    duration: 0.18,
+    ease: 'power1.in',
+    overwrite: true,
+    onComplete: () => {
+      renderTheme(value);
+      gsap.fromTo(changing, { autoAlpha: 0 }, {
+        autoAlpha: 1,
+        duration: 0.42,
+        ease: 'power2.out',
+        overwrite: true,
+        clearProps: 'opacity,visibility',
+      });
+    },
+  });
+}
 
 function mobileDigits() {
   let digits = mobileInput.value.replace(/\D/g, '');
@@ -60,30 +139,13 @@ for (const input of [nameInput, mobileInput]) {
   input.addEventListener('blur', () => validate({ showErrors: true }));
 }
 
-document.querySelectorAll('input[name="outlet"]').forEach((radio) => {
-  radio.addEventListener('change', () => {
-    outlet = radio.value;
-    document.querySelectorAll('.venue-option').forEach((option) => option.classList.toggle('is-selected', option.contains(radio)));
-    if (reduceMotion) {
-      selectedVenue.textContent = outlet;
-    } else {
-      gsap.to(selectedVenue, {
-        autoAlpha: 0,
-        y: -6,
-        duration: 0.16,
-        ease: 'power1.in',
-        onComplete: () => {
-          selectedVenue.textContent = outlet;
-          gsap.fromTo(selectedVenue, { autoAlpha: 0, y: 6 }, { autoAlpha: 1, y: 0, duration: 0.24, ease: 'power2.out' });
-        },
-      });
-    }
-  });
-});
+outletSelect.addEventListener('change', () => setTheme(outletSelect.value));
+renderTheme(outletSelect.value);
 
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
   if (!validate({ showErrors: true })) return;
+  const selectedOutlet = outletSelect.value;
 
   submitButton.disabled = true;
   submitButton.classList.add('is-loading');
@@ -93,7 +155,7 @@ form.addEventListener('submit', async (event) => {
     const response = await fetch('/api/leads', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name: nameInput.value, mobile: mobileInput.value, outlet }),
+      body: JSON.stringify({ name: nameInput.value, mobile: mobileInput.value, outlet: selectedOutlet }),
     });
     const payload = await response.json();
     if (!response.ok) {
@@ -102,7 +164,7 @@ form.addEventListener('submit', async (event) => {
       throw new Error(payload.error);
     }
 
-    document.querySelector('#success-outlet').textContent = outlet;
+    document.querySelector('#success-outlet').textContent = selectedOutlet;
     status.textContent = '';
     if (reduceMotion) {
       checkInView.hidden = true;
@@ -137,7 +199,6 @@ document.querySelector('#next-guest').addEventListener('click', () => {
   checkInView.hidden = false;
   successView.hidden = true;
   gsap.set([checkInView, successView], { clearProps: 'all' });
-  document.querySelector('input[name="outlet"]:checked').dispatchEvent(new Event('change'));
   validate();
   nameInput.focus();
 });

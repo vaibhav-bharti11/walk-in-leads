@@ -1,3 +1,21 @@
+@font-face {
+  font-family: "Cormorant Garamond Local";
+  src: url("/fonts/cormorant-garamond.woff2") format("woff2");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Cormorant SC Local";
+  src: url("/fonts/cormorant-sc.woff2") format("woff2");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Jost Local";
+  src: url("/fonts/jost.woff2") format("woff2");
+  font-display: swap;
+}
+
 :root {
   color-scheme: light;
   --oxblood: #961f1f;
@@ -364,6 +382,291 @@ input[aria-invalid="true"] { border-color: #a73830; }
   :root { --line: rgba(37,28,24,.32); }
   input[type="text"], input[type="tel"], input[type="password"], .phone-field { border-color: rgba(37,28,24,.42); }
   .venue-option { border-color: rgba(255,255,255,.38); }
+}
+
+/* Brand-led guest welcome */
+.guest-page {
+  --guest-accent: #d98da8;
+  --guest-surface: rgba(20, 18, 17, .84);
+  --guest-surface-solid: #171514;
+  --guest-text: #fbf8f3;
+  --guest-muted: rgba(251, 248, 243, .68);
+  --guest-line: rgba(255, 255, 255, .15);
+  --guest-field: rgba(255, 255, 255, .09);
+  --guest-field-strong: rgba(255, 255, 255, .14);
+  --guest-button-text: #211a18;
+  --guest-display: "Iowan Old Style", "Baskerville", serif;
+  --guest-body: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  min-height: 100dvh;
+  padding: 0;
+  overflow-x: hidden;
+  color: var(--guest-text);
+  background: var(--guest-surface-solid);
+  font-family: var(--guest-body);
+}
+
+.guest-page[data-brand="basque"] {
+  --guest-accent: #1f4c42;
+  --guest-surface: rgba(248, 235, 203, .91);
+  --guest-surface-solid: #f8ebcb;
+  --guest-text: #13302c;
+  --guest-muted: rgba(19, 48, 44, .68);
+  --guest-line: rgba(31, 76, 66, .18);
+  --guest-field: rgba(255, 255, 255, .45);
+  --guest-field-strong: rgba(255, 255, 255, .72);
+  --guest-button-text: #fffdf7;
+  --guest-display: "Cormorant Garamond Local", Georgia, serif;
+  --guest-body: "Jost Local", sans-serif;
+}
+
+.guest-page[data-brand="embassy"] {
+  --guest-accent: #b11226;
+  --guest-surface: rgba(255, 247, 247, .92);
+  --guest-surface-solid: #fff7f7;
+  --guest-text: #311417;
+  --guest-muted: rgba(49, 20, 23, .66);
+  --guest-line: rgba(177, 18, 38, .16);
+  --guest-field: rgba(255, 255, 255, .62);
+  --guest-field-strong: rgba(255, 255, 255, .92);
+  --guest-button-text: #fff;
+  --guest-display: "Cormorant Garamond Local", Georgia, serif;
+  --guest-body: "Jost Local", sans-serif;
+}
+
+.brand-stage { position: relative; min-height: 100dvh; }
+
+.brand-backdrop {
+  position: fixed;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  background: var(--guest-surface-solid);
+}
+
+.brand-image {
+  position: absolute;
+  inset: -2%;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  transform: scale(1.03);
+}
+
+.guest-page[data-brand="kampai"] .brand-image { background-image: url("/brands/kampai-interior.png"); }
+.guest-page[data-brand="basque"] .brand-image { background-image: url("/brands/basque-garden.webp"); }
+.guest-page[data-brand="embassy"] .brand-image { background-image: url("/brands/embassy-heritage.webp"); }
+
+.brand-backdrop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(6, 5, 5, .2), rgba(6, 5, 5, .08) 38%, rgba(6, 5, 5, .52)),
+    linear-gradient(180deg, rgba(6, 5, 5, .26), transparent 34%, rgba(6, 5, 5, .14));
+}
+
+.guest-page[data-brand="basque"] .brand-backdrop::after {
+  background: linear-gradient(90deg, rgba(13, 37, 32, .16), rgba(13, 37, 32, .04) 38%, rgba(13, 37, 32, .5));
+}
+
+.guest-page[data-brand="embassy"] .brand-backdrop::after {
+  background:
+    linear-gradient(90deg, rgba(63, 5, 12, .22), rgba(63, 5, 12, .05) 35%, rgba(63, 5, 12, .62)),
+    linear-gradient(180deg, rgba(28, 5, 8, .12), transparent 46%, rgba(28, 5, 8, .26));
+}
+
+.guest-header {
+  position: fixed;
+  z-index: 30;
+  top: max(20px, env(safe-area-inset-top));
+  left: max(24px, env(safe-area-inset-left));
+  right: max(24px, env(safe-area-inset-right));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.group-wordmark {
+  color: #fff;
+  font-size: 12px;
+  font-weight: 680;
+  letter-spacing: .14em;
+  text-decoration: none;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, .38);
+  text-transform: uppercase;
+}
+
+.outlet-picker {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 9px 6px 17px;
+  color: #fff;
+  background: rgba(17, 15, 14, .38);
+  border-color: rgba(255, 255, 255, .24);
+  border-radius: 19px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .2), inset 0 1px 0 rgba(255, 255, 255, .16);
+}
+
+.outlet-picker > label { color: rgba(255, 255, 255, .66); font-size: 12px; }
+.select-shell { position: relative; display: flex; align-items: center; }
+
+.select-shell select {
+  min-width: 250px;
+  height: 44px;
+  padding: 0 42px 0 14px;
+  color: #fff;
+  appearance: none;
+  background: rgba(255, 255, 255, .11);
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 13px;
+  outline: 0;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 620;
+  cursor: pointer;
+}
+
+.select-shell select:focus-visible { outline: 3px solid rgba(255, 255, 255, .55); outline-offset: 2px; }
+.select-shell option { color: #1d1917; background: #fff; }
+.select-shell svg { position: absolute; right: 13px; width: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; pointer-events: none; }
+
+.guest-card {
+  position: relative;
+  z-index: 10;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 112px clamp(28px, 6vw, 86px) 42px;
+}
+
+.guest-card__content {
+  width: min(560px, 100%);
+  padding: clamp(34px, 4.6vw, 58px);
+  color: var(--guest-text);
+  background: var(--guest-surface);
+  border: 1px solid var(--guest-line);
+  border-radius: 32px;
+  -webkit-backdrop-filter: blur(30px) saturate(1.14);
+  backdrop-filter: blur(30px) saturate(1.14);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, .28), inset 0 1px 0 rgba(255, 255, 255, .18);
+}
+
+.brand-lockup { min-height: 74px; margin-bottom: 30px; }
+.brand-mark { display: none; align-items: center; color: var(--guest-text); }
+.guest-page[data-brand="kampai"] .brand-mark--kampai,
+.guest-page[data-brand="basque"] .brand-mark--basque,
+.guest-page[data-brand="embassy"] .brand-mark--embassy { display: flex; }
+
+.brand-mark--kampai { gap: 14px; }
+.kampai-name { font-size: 22px; font-weight: 320; letter-spacing: .48em; }
+.kampai-kanji { padding-left: 13px; color: var(--guest-accent); border-left: 1px solid var(--guest-line); font-family: "Yu Mincho", "Hiragino Mincho ProN", serif; font-size: 20px; letter-spacing: .12em; }
+.brand-mark--basque img { width: 160px; height: auto; }
+.brand-mark--embassy { gap: 6px; color: var(--guest-accent); font-family: var(--guest-display); }
+.brand-mark--embassy span { align-self: flex-start; margin-top: 5px; font-size: 16px; font-style: italic; }
+.brand-mark--embassy strong { font-size: 43px; font-style: italic; font-weight: 500; letter-spacing: -.045em; line-height: .9; }
+
+#brand-location {
+  margin: 10px 0 0;
+  color: var(--guest-muted);
+  font-size: 12px;
+  letter-spacing: .06em;
+}
+
+.welcome-note { margin: 0 0 12px; color: var(--guest-accent); font-size: 13px; font-weight: 620; }
+.guest-page[data-brand="basque"] .welcome-note { font-family: "Cormorant SC Local", Georgia, serif; font-size: 15px; }
+
+.guest-card h1,
+.guest-card h2 {
+  max-width: 470px;
+  color: var(--guest-text);
+  font-family: var(--guest-display);
+  font-size: clamp(46px, 5.2vw, 72px);
+  font-weight: 500;
+  letter-spacing: -.04em;
+  line-height: .94;
+}
+
+.guest-page[data-brand="kampai"] .guest-card h1,
+.guest-page[data-brand="kampai"] .guest-card h2 { font-weight: 650; letter-spacing: -.035em; }
+
+.guest-card .invitation-copy { max-width: 450px; margin: 20px 0 30px; color: var(--guest-muted); font-size: 17px; line-height: 1.55; }
+.guest-card .field-group { margin-bottom: 17px; }
+.guest-card .field-group > label { color: var(--guest-text); }
+
+.guest-card input[type="text"],
+.guest-card input[type="tel"],
+.guest-card .phone-field {
+  color: var(--guest-text);
+  background: var(--guest-field);
+  border-color: var(--guest-line);
+}
+
+.guest-card input::placeholder { color: var(--guest-muted); }
+.guest-card input:focus,
+.guest-card .phone-field:focus-within { background: var(--guest-field-strong); border-color: var(--guest-accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--guest-accent) 18%, transparent); }
+.guest-card .phone-field > span { color: var(--guest-muted); border-color: var(--guest-line); }
+.guest-card .phone-field input:focus { background: transparent; box-shadow: none; }
+.guest-card .field-error,
+.guest-card .form-status { color: color-mix(in srgb, var(--guest-accent) 78%, #ff7a70); }
+
+.guest-card .liquid-button {
+  --button-bg: color-mix(in srgb, var(--guest-accent) 90%, transparent);
+  color: var(--guest-button-text);
+  border-color: rgba(255, 255, 255, .32);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 12px 30px color-mix(in srgb, var(--guest-accent) 26%, transparent);
+}
+
+.guest-card .liquid-button:hover:not(:disabled) { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .46), 0 17px 36px color-mix(in srgb, var(--guest-accent) 34%, transparent); }
+.guest-card .liquid-button:focus-visible { outline-color: var(--guest-accent); }
+.guest-card .privacy-note { color: var(--guest-muted); }
+.guest-card .success-mark { background: color-mix(in srgb, var(--guest-accent) 14%, transparent); }
+.guest-card .success-mark span { border-color: var(--guest-accent); }
+
+.reduce-transparency .guest-card__content { background: var(--guest-surface-solid); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.reduce-transparency .outlet-picker { background: rgba(18, 16, 15, .94); -webkit-backdrop-filter: none; backdrop-filter: none; }
+
+@media (min-width: 721px) and (max-height: 820px) {
+  .guest-card { padding-top: 88px; padding-bottom: 24px; }
+  .guest-card__content { padding: 30px 42px; }
+  .brand-lockup { min-height: 52px; margin-bottom: 16px; }
+  .brand-mark--basque img { width: 138px; }
+  .brand-mark--embassy strong { font-size: 38px; }
+  #brand-location { margin-top: 7px; }
+  .welcome-note { margin-bottom: 8px; }
+  .guest-card h1, .guest-card h2 { font-size: clamp(42px, 4.4vw, 58px); }
+  .guest-card .invitation-copy { margin: 13px 0 19px; font-size: 16px; }
+  .guest-card .field-group { margin-bottom: 10px; }
+  .guest-card input[type="text"], .guest-card input[type="tel"], .guest-card .phone-field { min-height: 52px; }
+  .guest-card .liquid-button { min-height: 54px; }
+  .guest-card .privacy-note { margin-top: 7px; }
+}
+
+@media (max-width: 720px) {
+  .guest-page { background: var(--guest-surface-solid); }
+  .guest-header { top: max(12px, env(safe-area-inset-top)); left: 14px; right: 14px; gap: 12px; }
+  .group-wordmark { max-width: 76px; font-size: 9px; line-height: 1.4; }
+  .outlet-picker { min-width: 0; flex: 1; padding-left: 8px; }
+  .outlet-picker > label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .select-shell { width: 100%; }
+  .select-shell select { width: 100%; min-width: 0; font-size: 13px; }
+  .guest-card { min-height: 100dvh; align-items: flex-end; padding: 36vh 0 0; }
+  .guest-card__content { width: 100%; min-height: 66vh; padding: 32px 22px max(28px, env(safe-area-inset-bottom)); border-width: 1px 0 0; border-radius: 30px 30px 0 0; }
+  .brand-lockup { min-height: 62px; margin-bottom: 24px; }
+  .guest-card h1, .guest-card h2 { font-size: clamp(42px, 13vw, 58px); }
+  .guest-card .invitation-copy { margin-bottom: 26px; }
+}
+
+@media (max-width: 370px) {
+  .guest-header { left: 10px; right: 10px; }
+  .group-wordmark { display: none; }
+  .guest-card { padding-top: 31vh; }
+  .guest-card__content { padding-inline: 18px; }
+  .kampai-name { font-size: 19px; }
+  .brand-mark--embassy strong { font-size: 38px; }
 }
 
 /* Admin guest book */

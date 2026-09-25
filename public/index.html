@@ -3,58 +3,55 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#961f1f">
+    <meta name="theme-color" content="#1c1a19">
     <meta name="description" content="Avantika Group guest check-in">
     <title>Welcome | Avantika Group</title>
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/styles.css?v=3">
     <script src="/vendor/gsap.min.js" defer></script>
-    <script src="/guest.js" defer></script>
+    <script src="/guest.js?v=3" defer></script>
   </head>
-  <body class="guest-page">
-    <main class="guest-shell">
-      <aside class="venue-panel" aria-labelledby="venue-heading">
-        <a class="wordmark" href="/" aria-label="Avantika Group home">Avantika Group</a>
-        <div class="venue-intro">
-          <p id="venue-heading" class="venue-heading">Where are we welcoming you?</p>
-          <div class="venue-list" role="radiogroup" aria-labelledby="venue-heading">
-            <label class="venue-option glass-control is-selected">
-              <input type="radio" name="outlet" value="Kampai" checked>
-              <span class="venue-dot" aria-hidden="true"></span>
-              <span>Kampai</span>
-            </label>
-            <label class="venue-option glass-control">
-              <input type="radio" name="outlet" value="Basque">
-              <span class="venue-dot" aria-hidden="true"></span>
-              <span>Basque</span>
-            </label>
-            <label class="venue-option glass-control">
-              <input type="radio" name="outlet" value="Embassy — Connaught Place">
-              <span class="venue-dot" aria-hidden="true"></span>
-              <span>Embassy <small>Connaught Place</small></span>
-            </label>
-            <label class="venue-option glass-control">
-              <input type="radio" name="outlet" value="Embassy — Elan Epic">
-              <span class="venue-dot" aria-hidden="true"></span>
-              <span>Embassy <small>Elan Epic</small></span>
-            </label>
-            <label class="venue-option glass-control">
-              <input type="radio" name="outlet" value="Embassy — Vasant Kunj">
-              <span class="venue-dot" aria-hidden="true"></span>
-              <span>Embassy <small>Vasant Kunj</small></span>
-            </label>
+  <body class="guest-page" data-brand="kampai">
+    <main class="brand-stage">
+      <div class="brand-backdrop" aria-hidden="true"><div class="brand-image"></div></div>
+
+      <header class="guest-header">
+        <a class="group-wordmark" href="/" aria-label="Avantika Group home">Avantika Group</a>
+        <div class="outlet-picker glass-control">
+          <label for="outlet-select">Restaurant</label>
+          <div class="select-shell">
+            <select id="outlet-select" name="outlet" aria-label="Choose restaurant">
+              <option value="Kampai">Kampai · Aerocity</option>
+              <option value="Basque">Basque · Dehradun</option>
+              <option value="Embassy — Connaught Place">The Embassy · Connaught Place</option>
+              <option value="Embassy — Elan Epic">The Embassy · Elan Epic</option>
+              <option value="Embassy — Vasant Kunj">The Embassy · Vasant Kunj</option>
+            </select>
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 7.5 5 5 5-5"/></svg>
           </div>
         </div>
-        <p class="venue-signoff"><span aria-hidden="true"></span>Five rooms. One warm welcome.</p>
-      </aside>
+      </header>
 
-      <section class="invitation-panel">
-        <div class="invitation-inner">
+      <section class="guest-card" aria-labelledby="welcome-title">
+        <div class="guest-card__content">
+          <div class="brand-lockup" aria-label="Selected restaurant">
+            <div class="brand-mark brand-mark--kampai">
+              <span class="kampai-name">KAMPAI</span><span class="kampai-kanji" aria-hidden="true">乾杯</span>
+            </div>
+            <div class="brand-mark brand-mark--basque">
+              <img src="/brands/basque-logo.webp" alt="Basque">
+            </div>
+            <div class="brand-mark brand-mark--embassy">
+              <span>The</span><strong>Embassy</strong>
+            </div>
+            <p id="brand-location">Plate &amp; Pour · Aerocity</p>
+          </div>
+
           <div id="check-in-view">
-            <p class="selected-venue">Joining us at <strong id="selected-venue">Kampai</strong></p>
-            <h1>Your table is almost ready.</h1>
-            <p class="invitation-copy">Leave us your name and number, and we’ll take care of the rest.</p>
+            <p id="brand-note" class="welcome-note">Japanese hospitality, in the heart of Delhi.</p>
+            <h1 id="welcome-title">Come in. Stay awhile.</h1>
+            <p id="welcome-copy" class="invitation-copy">Leave us your name and number—we’ll make sure every visit feels familiar.</p>
 
             <form id="lead-form" novalidate>
               <div class="field-group">
@@ -73,20 +70,20 @@
               </div>
 
               <button class="primary-action liquid-button" type="submit" disabled>
-                <span>Add me to the guest list</span>
+                <span id="submit-label">Join Kampai’s guest list</span>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
               </button>
               <p id="form-status" class="form-status" role="status" aria-live="polite"></p>
               <p class="privacy-note">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V8a5 5 0 0 1 10 0v2M6 10h12v10H6z"/></svg>
-                Kept private by Avantika Group.
+                Your details stay private with Avantika Group.
               </p>
             </form>
           </div>
 
           <div id="success-view" class="success-view" hidden>
             <div class="success-mark" aria-hidden="true"><span></span></div>
-            <p class="selected-venue">Guest list updated</p>
+            <p class="welcome-note">Guest list updated</p>
             <h2>You’re on the list.</h2>
             <p class="invitation-copy">Welcome to <strong id="success-outlet">Kampai</strong>. We’ll take it from here.</p>
             <button id="next-guest" class="primary-action liquid-button" type="button">
@@ -94,7 +91,6 @@
             </button>
           </div>
         </div>
-        <a class="admin-link" href="/admin">Guest book</a>
       </section>
     </main>
   </body>

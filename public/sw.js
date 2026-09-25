@@ -1,5 +1,19 @@
-const CACHE = 'avantika-guest-list-v1';
-const SHELL = ['/', '/styles.css', '/guest.js', '/vendor/gsap.min.js', '/manifest.webmanifest', '/icons/icon.svg'];
+const CACHE = 'avantika-guest-list-v3';
+const SHELL = [
+  '/',
+  '/styles.css?v=3',
+  '/guest.js?v=3',
+  '/vendor/gsap.min.js',
+  '/manifest.webmanifest',
+  '/icons/icon.svg',
+  '/brands/kampai-interior.png',
+  '/brands/basque-garden.webp',
+  '/brands/basque-logo.webp',
+  '/brands/embassy-heritage.webp',
+  '/fonts/cormorant-garamond.woff2',
+  '/fonts/cormorant-sc.woff2',
+  '/fonts/jost.woff2',
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));

@@ -21,6 +21,13 @@ const STATIC_FILES = new Map([
   ['/manifest.webmanifest', ['public/manifest.webmanifest', 'application/manifest+json']],
   ['/sw.js', ['public/sw.js', 'text/javascript; charset=utf-8']],
   ['/icons/icon.svg', ['public/icons/icon.svg', 'image/svg+xml']],
+  ['/brands/kampai-interior.png', ['public/brands/kampai-interior.png', 'image/png']],
+  ['/brands/basque-garden.webp', ['public/brands/basque-garden.webp', 'image/webp']],
+  ['/brands/basque-logo.webp', ['public/brands/basque-logo.webp', 'image/webp']],
+  ['/brands/embassy-heritage.webp', ['public/brands/embassy-heritage.webp', 'image/webp']],
+  ['/fonts/cormorant-garamond.woff2', ['public/fonts/cormorant-garamond.woff2', 'font/woff2']],
+  ['/fonts/cormorant-sc.woff2', ['public/fonts/cormorant-sc.woff2', 'font/woff2']],
+  ['/fonts/jost.woff2', ['public/fonts/jost.woff2', 'font/woff2']],
   ['/vendor/gsap.min.js', ['node_modules/gsap/dist/gsap.min.js', 'text/javascript; charset=utf-8']],
 ]);
 

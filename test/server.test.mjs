@@ -146,19 +146,44 @@ test('serves the installable guest shell and its local GSAP runtime', async () =
     assert.equal(page.headers.get('x-frame-options'), 'DENY');
     assert.equal(page.headers.get('referrer-policy'), 'no-referrer');
     assert.match(page.headers.get('content-security-policy') || '', /default-src 'self'/);
-    assert.match(html, /Your table is almost ready\./);
-    assert.match(html, /Leave us your name and number, and we’ll take care of the rest\./);
+    assert.match(html, /Come in\. Stay awhile\./);
+    assert.match(html, /Leave us your name and number—we’ll make sure every visit feels familiar\./);
+    assert.match(html, /<body[^>]*class="guest-page"[^>]*data-brand="kampai"/);
+    assert.match(html, /<select[^>]*id="outlet-select"[^>]*name="outlet"/);
+    for (const brand of ['kampai', 'basque', 'embassy']) {
+      assert.match(html, new RegExp(`class="brand-mark brand-mark--${brand}`));
+    }
     assert.match(html, /<label[^>]*for="guest-name"[^>]*>Your name<\/label>/);
     assert.match(html, /<label[^>]*for="guest-mobile"[^>]*>Mobile number<\/label>/);
-    assert.match(html, /Add me to the guest list/);
+    assert.match(html, /Join Kampai’s guest list/);
     assert.match(html, /manifest\.webmanifest/);
     for (const outlet of ['Kampai', 'Basque', 'Embassy — Connaught Place', 'Embassy — Elan Epic', 'Embassy — Vasant Kunj']) {
-      assert.match(html, new RegExp(outlet));
+      assert.match(html, new RegExp(`<option[^>]*value="${outlet}"`));
     }
+    assert.doesNotMatch(html, /class="venue-panel"/);
+    assert.doesNotMatch(html, /href="\/admin"/);
 
-    for (const path of ['/manifest.webmanifest', '/sw.js', '/guest.js', '/styles.css', '/icons/icon.svg', '/vendor/gsap.min.js']) {
+    for (const path of [
+      '/manifest.webmanifest',
+      '/sw.js',
+      '/guest.js',
+      '/styles.css',
+      '/icons/icon.svg',
+      '/vendor/gsap.min.js',
+      '/brands/kampai-interior.png',
+      '/brands/basque-garden.webp',
+      '/brands/basque-logo.webp',
+      '/brands/embassy-heritage.webp',
+      '/fonts/cormorant-garamond.woff2',
+      '/fonts/cormorant-sc.woff2',
+      '/fonts/jost.woff2',
+    ]) {
       assert.equal((await fetch(`${app.baseUrl}${path}`)).status, 200, path);
     }
+
+    const guestScript = await (await fetch(`${app.baseUrl}/guest.js`)).text();
+    assert.match(guestScript, /const selectedOutlet = outletSelect\.value;/);
+    assert.match(guestScript, /outlet: selectedOutlet/);
   } finally {
     await app.close();
   }
