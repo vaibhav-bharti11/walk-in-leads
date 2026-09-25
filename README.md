@@ -45,4 +45,3 @@ ephemeral filesystem, mount a persistent volume at `data/` or point
 The app intentionally stores only name, normalized mobile number, outlet, and
 arrival time. Retention tracking, average spend, and visit frequency are not
 part of this release.
-

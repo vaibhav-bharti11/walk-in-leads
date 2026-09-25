@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHmac } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
@@ -64,6 +65,14 @@ test('captures a lead and rejects invalid or oversized input', async () => {
       body: JSON.stringify({ name: 'A'.repeat(17_000) }),
     });
     assert.equal(oversized.status, 413);
+
+    const malformed = await request(`${app.baseUrl}/api/leads`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{not-json',
+    });
+    assert.equal(malformed.status, 400);
+    assert.deepEqual(await malformed.json(), { error: 'Send valid JSON.' });
   } finally {
     await app.close();
   }
@@ -104,6 +113,11 @@ test('protects admin listing and filtered CSV export with a signed session', asy
     const tampered = `${cookie}x`;
     assert.equal((await fetch(`${app.baseUrl}/api/admin/leads`, { headers: { cookie: tampered } })).status, 401);
 
+    const expiredPayload = `admin:${Date.now() - 1}`;
+    const expiredSignature = createHmac('sha256', 'test-session-secret-that-is-long-enough').update(expiredPayload).digest('base64url');
+    const expiredCookie = `avantika_session=${Buffer.from(expiredPayload).toString('base64url')}.${expiredSignature}`;
+    assert.equal((await fetch(`${app.baseUrl}/api/admin/leads`, { headers: { cookie: expiredCookie } })).status, 401);
+
     const exported = await fetch(`${app.baseUrl}/api/admin/export?outlet=${encodeURIComponent('Kampai')}`, {
       headers: { cookie },
     });
@@ -128,6 +142,10 @@ test('serves the installable guest shell and its local GSAP runtime', async () =
     const page = await fetch(`${app.baseUrl}/`);
     assert.equal(page.status, 200);
     const html = await page.text();
+    assert.equal(page.headers.get('x-content-type-options'), 'nosniff');
+    assert.equal(page.headers.get('x-frame-options'), 'DENY');
+    assert.equal(page.headers.get('referrer-policy'), 'no-referrer');
+    assert.match(page.headers.get('content-security-policy') || '', /default-src 'self'/);
     assert.match(html, /Your table is almost ready\./);
     assert.match(html, /Leave us your name and number, and we’ll take care of the rest\./);
     assert.match(html, /<label[^>]*for="guest-name"[^>]*>Your name<\/label>/);
@@ -141,6 +159,27 @@ test('serves the installable guest shell and its local GSAP runtime', async () =
     for (const path of ['/manifest.webmanifest', '/sw.js', '/guest.js', '/styles.css', '/icons/icon.svg', '/vendor/gsap.min.js']) {
       assert.equal((await fetch(`${app.baseUrl}${path}`)).status, 200, path);
     }
+  } finally {
+    await app.close();
+  }
+});
+
+test('rate limits repeated admin password failures from one client', async () => {
+  const app = await startTestApp();
+  try {
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+      const response = await request(`${app.baseUrl}/api/admin/login`, {
+        method: 'POST',
+        json: { password: 'wrong' },
+      });
+      assert.equal(response.status, 401);
+    }
+    const blocked = await request(`${app.baseUrl}/api/admin/login`, {
+      method: 'POST',
+      json: { password: 'correct horse battery staple' },
+    });
+    assert.equal(blocked.status, 429);
+    assert.match(blocked.headers.get('retry-after') || '', /^\d+$/);
   } finally {
     await app.close();
   }

@@ -10,6 +10,8 @@ import { createLeadStore, escapeCsvCell } from './domain.mjs';
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const BODY_LIMIT = 16 * 1024;
 const SESSION_AGE_SECONDS = 8 * 60 * 60;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const MAX_LOGIN_FAILURES = 5;
 const STATIC_FILES = new Map([
   ['/', ['public/index.html', 'text/html; charset=utf-8']],
   ['/admin', ['public/admin.html', 'text/html; charset=utf-8']],
@@ -22,12 +24,13 @@ const STATIC_FILES = new Map([
   ['/vendor/gsap.min.js', ['node_modules/gsap/dist/gsap.min.js', 'text/javascript; charset=utf-8']],
 ]);
 
-function json(response, status, body) {
+function json(response, status, body, headers = {}) {
   const payload = JSON.stringify(body);
   response.writeHead(status, {
     'content-type': 'application/json; charset=utf-8',
     'content-length': Buffer.byteLength(payload),
     'cache-control': 'no-store',
+    ...headers,
   });
   response.end(payload);
 }
@@ -114,6 +117,8 @@ export function createApp({ databasePath, adminPassword, sessionSecret, secureCo
   const sessions = createSessionTools(sessionSecret);
   const passwordSalt = sessionSecret.slice(0, 32);
   const cookieFlags = `Path=/; HttpOnly; SameSite=Strict${secureCookies ? '; Secure' : ''}`;
+  // ponytail: per-process limiting fits one Node instance; use a proxy/shared store when horizontally scaled.
+  const loginFailures = new Map();
 
   function authorized(request) {
     return sessions.verify(cookieValue(request, 'avantika_session'));
@@ -121,6 +126,11 @@ export function createApp({ databasePath, adminPassword, sessionSecret, secureCo
 
   async function handler(request, response) {
     const url = new URL(request.url, 'http://localhost');
+    response.setHeader('content-security-policy', "default-src 'self'; base-uri 'none'; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self'; worker-src 'self'");
+    response.setHeader('referrer-policy', 'no-referrer');
+    response.setHeader('x-content-type-options', 'nosniff');
+    response.setHeader('x-frame-options', 'DENY');
+    if (secureCookies) response.setHeader('strict-transport-security', 'max-age=31536000; includeSubDomains');
     try {
       if (request.method === 'POST' && url.pathname === '/api/leads') {
         const lead = store.add(await readJson(request));
@@ -128,10 +138,22 @@ export function createApp({ databasePath, adminPassword, sessionSecret, secureCo
       }
 
       if (request.method === 'POST' && url.pathname === '/api/admin/login') {
+        const client = request.socket.remoteAddress || 'unknown';
+        const now = Date.now();
+        const previous = loginFailures.get(client);
+        const failures = previous && previous.resetAt > now ? previous : { count: 0, resetAt: now + LOGIN_WINDOW_MS };
+        if (failures.count >= MAX_LOGIN_FAILURES) {
+          return json(response, 429, { error: 'Too many sign-in attempts. Try again later.' }, {
+            'retry-after': String(Math.ceil((failures.resetAt - now) / 1000)),
+          });
+        }
         const { password } = await readJson(request);
         if (!safePasswordEqual(password, adminPassword, passwordSalt)) {
+          failures.count += 1;
+          loginFailures.set(client, failures);
           return json(response, 401, { error: 'That password is not correct.' });
         }
+        loginFailures.delete(client);
         return empty(response, 204, {
           'set-cookie': `avantika_session=${sessions.issue()}; Max-Age=${SESSION_AGE_SECONDS}; ${cookieFlags}`,
         });
