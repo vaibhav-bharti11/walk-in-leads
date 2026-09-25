@@ -5,7 +5,7 @@ import { createServer } from 'node:http';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { createLeadStore, escapeCsvCell } from './domain.mjs';
+import { createLeadStore, createPostgresLeadStore, escapeCsvCell } from './domain.mjs';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const BODY_LIMIT = 16 * 1024;
@@ -111,9 +111,9 @@ function csvFor(leads) {
   return `\uFEFF${rows.map((row) => row.map(escapeCsvCell).join(',')).join('\r\n')}\r\n`;
 }
 
-export function createApp({ databasePath, adminPassword, sessionSecret, secureCookies = true }) {
-  mkdirSync(dirname(databasePath), { recursive: true });
-  const store = createLeadStore(databasePath);
+export function createApp({ databasePath, leadStore, adminPassword, sessionSecret, secureCookies = true }) {
+  if (!leadStore) mkdirSync(dirname(databasePath), { recursive: true });
+  const store = leadStore || createLeadStore(databasePath);
   const sessions = createSessionTools(sessionSecret);
   const passwordSalt = sessionSecret.slice(0, 32);
   const cookieFlags = `Path=/; HttpOnly; SameSite=Strict${secureCookies ? '; Secure' : ''}`;
@@ -133,7 +133,7 @@ export function createApp({ databasePath, adminPassword, sessionSecret, secureCo
     if (secureCookies) response.setHeader('strict-transport-security', 'max-age=31536000; includeSubDomains');
     try {
       if (request.method === 'POST' && url.pathname === '/api/leads') {
-        const lead = store.add(await readJson(request));
+        const lead = await store.add(await readJson(request));
         return json(response, 201, { lead });
       }
 
@@ -165,12 +165,15 @@ export function createApp({ databasePath, adminPassword, sessionSecret, secureCo
 
       if (request.method === 'GET' && url.pathname === '/api/admin/leads') {
         const outlet = url.searchParams.get('outlet') || undefined;
-        return json(response, 200, { total: store.count({ outlet }), leads: store.list({ outlet }) });
+        return json(response, 200, {
+          total: await store.count({ outlet }),
+          leads: await store.list({ outlet }),
+        });
       }
 
       if (request.method === 'GET' && url.pathname === '/api/admin/export') {
         const outlet = url.searchParams.get('outlet') || undefined;
-        const payload = csvFor(store.list({ outlet }));
+        const payload = csvFor(await store.list({ outlet }));
         response.writeHead(200, {
           'content-type': 'text/csv; charset=utf-8',
           'content-disposition': 'attachment; filename="avantika-guest-list.csv"',
@@ -217,8 +220,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     throw new Error('ADMIN_PASSWORD and SESSION_SECRET are required in production.');
   }
   const databasePath = process.env.DATABASE_PATH || join(ROOT, 'data', 'leads.db');
+  const leadStore = process.env.DATABASE_URL
+    ? await createPostgresLeadStore(process.env.DATABASE_URL)
+    : undefined;
   const app = createApp({
     databasePath,
+    leadStore,
     adminPassword: adminPassword || 'change-me-before-production',
     sessionSecret: sessionSecret || 'local-development-secret-change-me',
     secureCookies: production,

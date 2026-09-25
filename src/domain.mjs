@@ -1,4 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
+import pg from 'pg';
+
+const { Pool } = pg;
 
 export const OUTLETS = Object.freeze([
   'Kampai',
@@ -41,6 +44,13 @@ export function escapeCsvCell(value) {
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
+function checkedOutlet(outlet) {
+  if (outlet !== undefined && !OUTLETS.includes(outlet)) {
+    throw new LeadValidationError('outlet', 'Choose one of the listed outlets.');
+  }
+  return outlet;
+}
+
 export function createLeadStore(filename) {
   const database = new DatabaseSync(filename);
   database.exec(`
@@ -60,13 +70,6 @@ export function createLeadStore(filename) {
   const countAll = database.prepare('SELECT COUNT(*) AS total FROM leads');
   const countOutlet = database.prepare('SELECT COUNT(*) AS total FROM leads WHERE outlet = ?');
 
-  function checkedOutlet(outlet) {
-    if (outlet !== undefined && !OUTLETS.includes(outlet)) {
-      throw new LeadValidationError('outlet', 'Choose one of the listed outlets.');
-    }
-    return outlet;
-  }
-
   return {
     add(input) {
       const lead = normalizeLead(input);
@@ -83,6 +86,55 @@ export function createLeadStore(filename) {
     },
     close() {
       database.close();
+    },
+  };
+}
+
+export async function createPostgresLeadStore(connectionString, PoolClass = Pool) {
+  const pool = new PoolClass({ connectionString });
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS leads (
+      id BIGSERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      mobile TEXT NOT NULL,
+      outlet TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  function leadFromRow(row) {
+    return {
+      ...row,
+      id: Number(row.id),
+      created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+    };
+  }
+
+  return {
+    async add(input) {
+      const lead = normalizeLead(input);
+      const { rows } = await pool.query(
+        'INSERT INTO leads (name, mobile, outlet) VALUES ($1, $2, $3) RETURNING id',
+        [lead.name, lead.mobile, lead.outlet],
+      );
+      return { id: Number(rows[0].id), ...lead };
+    },
+    async list({ outlet } = {}) {
+      checkedOutlet(outlet);
+      const { rows } = outlet
+        ? await pool.query('SELECT id, name, mobile, outlet, created_at FROM leads WHERE outlet = $1 ORDER BY id DESC', [outlet])
+        : await pool.query('SELECT id, name, mobile, outlet, created_at FROM leads ORDER BY id DESC');
+      return rows.map(leadFromRow);
+    },
+    async count({ outlet } = {}) {
+      checkedOutlet(outlet);
+      const { rows } = outlet
+        ? await pool.query('SELECT COUNT(*) AS total FROM leads WHERE outlet = $1', [outlet])
+        : await pool.query('SELECT COUNT(*) AS total FROM leads');
+      return Number(rows[0].total);
+    },
+    close() {
+      return pool.end();
     },
   };
 }

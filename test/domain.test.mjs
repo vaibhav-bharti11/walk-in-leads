@@ -4,12 +4,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
-import {
+import * as domain from '../src/domain.mjs';
+
+const {
   OUTLETS,
   createLeadStore,
   escapeCsvCell,
   normalizeLead,
-} from '../src/domain.mjs';
+} = domain;
 
 test('normalizes a valid Indian walk-in lead', () => {
   assert.deepEqual(
@@ -58,4 +60,57 @@ test('escapes CSV formulas and quotes', () => {
   assert.equal(escapeCsvCell('=IMPORTXML("bad")'), '"\'=IMPORTXML(""bad"")"');
   assert.equal(escapeCsvCell('Aditi, Sharma'), '"Aditi, Sharma"');
   assert.equal(escapeCsvCell('Kampai'), 'Kampai');
+});
+
+test('stores production leads in Postgres', async () => {
+  assert.equal(typeof domain.createPostgresLeadStore, 'function');
+
+  const queries = [];
+  let closed = false;
+  class TestPool {
+    constructor(options) {
+      assert.equal(options.connectionString, 'postgres://example');
+    }
+
+    async query(text, values = []) {
+      queries.push({ text, values });
+      if (text.includes('INSERT INTO leads')) return { rows: [{ id: '7' }] };
+      if (text.includes('COUNT(*)')) return { rows: [{ total: '2' }] };
+      if (text.includes('SELECT id')) {
+        return {
+          rows: [{
+            id: '7',
+            name: 'Aditi Sharma',
+            mobile: '9876543210',
+            outlet: 'Basque',
+            created_at: new Date('2026-09-25T10:00:00.000Z'),
+          }],
+        };
+      }
+      return { rows: [] };
+    }
+
+    async end() {
+      closed = true;
+    }
+  }
+
+  const store = await domain.createPostgresLeadStore('postgres://example', TestPool);
+  assert.deepEqual(
+    await store.add({ name: 'Aditi Sharma', mobile: '9876543210', outlet: 'Basque' }),
+    { id: 7, name: 'Aditi Sharma', mobile: '9876543210', outlet: 'Basque' },
+  );
+  assert.equal(await store.count(), 2);
+  assert.deepEqual(await store.list({ outlet: 'Basque' }), [{
+    id: 7,
+    name: 'Aditi Sharma',
+    mobile: '9876543210',
+    outlet: 'Basque',
+    created_at: '2026-09-25T10:00:00.000Z',
+  }]);
+  await store.close();
+
+  assert.match(queries[0].text, /CREATE TABLE IF NOT EXISTS leads/);
+  assert.deepEqual(queries.at(-1).values, ['Basque']);
+  assert.equal(closed, true);
 });

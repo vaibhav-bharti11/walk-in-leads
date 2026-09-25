@@ -30,6 +30,7 @@ values. Production startup refuses to run without both secrets.
 | `SESSION_SECRET` | Yes | Development-only fallback |
 | `PORT` | No | `3000` |
 | `DATABASE_PATH` | No | `data/leads.db` |
+| `DATABASE_URL` | No | Uses SQLite when absent; Antideploy supplies Postgres |
 | `NODE_ENV` | Set to `production` in production | — |
 
 Use a unique, long `SESSION_SECRET` and serve the app behind HTTPS in
@@ -37,10 +38,9 @@ production so the secure admin cookie is transmitted only over TLS.
 
 ## Data and backups
 
-SQLite stores each visit in the file configured by `DATABASE_PATH`. Back up
-that file on the same schedule as other customer records. If the host uses an
-ephemeral filesystem, mount a persistent volume at `data/` or point
-`DATABASE_PATH` to one.
+Local development uses SQLite at `DATABASE_PATH`. Production automatically
+uses Postgres when `DATABASE_URL` is present; Antideploy supplies that variable
+and creates the `leads` table when the app starts.
 
 The app intentionally stores only name, normalized mobile number, outlet, and
 arrival time. Retention tracking, average spend, and visit frequency are not
