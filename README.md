@@ -31,7 +31,11 @@ values. Production startup refuses to run without both secrets.
 | `PORT` | No | `3000` |
 | `DATABASE_PATH` | No | `data/leads.db` |
 | `DATABASE_URL` | No | Uses SQLite when absent; Antideploy supplies Postgres |
-| `GOOGLE_SHEET_WEBHOOK_URL` | No | Google Apps Script or webhook URL to automatically sync leads |
+| `GOOGLE_SHEET_ID` | No | Google Spreadsheet ID (from spreadsheet URL) |
+| `GOOGLE_SERVICE_ACCOUNT_EMAIL` | No | Google Cloud Service Account email |
+| `GOOGLE_PRIVATE_KEY` | No | Google Cloud Service Account RSA private key (with `\n` preserved) |
+| `GOOGLE_SHEET_NAME` | No | Sheet/Tab name (defaults to `Sheet1`) |
+| `GOOGLE_SHEET_WEBHOOK_URL` | No | Alternative: Google Apps Script Web App URL for zero-auth sync |
 | `NODE_ENV` | Set to `production` in production | — |
 
 Use a unique, long `SESSION_SECRET` and serve the app behind HTTPS in
@@ -39,7 +43,19 @@ production so the secure admin cookie is transmitted only over TLS.
 
 ## Google Sheets Integration
 
-To automatically sync leads to your Google Sheet:
+The app supports two ways to synchronize leads to Google Sheets:
+
+### Option A: Official Google Sheets API v4 (Recommended)
+1. In Google Cloud Console, enable the **Google Sheets API**.
+2. Create a **Service Account** and generate a JSON key.
+3. Open your Google Sheet, click **Share**, and invite the service account email (e.g. `service-account@project.iam.gserviceaccount.com`) as an **Editor**.
+4. Set the following environment variables:
+   - `GOOGLE_SHEET_ID`: The ID from your sheet URL `https://docs.google.com/spreadsheets/d/<SPREADSHEET_ID>/edit`
+   - `GOOGLE_SERVICE_ACCOUNT_EMAIL`: Your service account email
+   - `GOOGLE_PRIVATE_KEY`: The `"private_key"` from the service account JSON
+   - `GOOGLE_SHEET_NAME` *(optional)*: `Sheet1`
+
+### Option B: Google Apps Script Webhook (No GCP credentials required)
 1. In your Google Sheet, open **Extensions > Apps Script**.
 2. Paste the following script:
 ```javascript
@@ -54,13 +70,14 @@ function doPost(e) {
       sheet.appendRow([lead.id, lead.name, lead.mobile, lead.outlet, lead.created_at]);
     });
   } else {
-    sheet.appendRow([data.id, data.name, data.mobile, data.outlet, data.created_at || data.timestamp]);
+    var lead = data.lead || data;
+    sheet.appendRow([lead.id, lead.name, lead.mobile, lead.outlet, lead.created_at || data.timestamp]);
   }
   return ContentService.createTextOutput(JSON.stringify({ status: "success" })).setMimeType(ContentService.MimeType.JSON);
 }
 ```
 3. Click **Deploy > New deployment > Web app**. Set *Who has access* to **Anyone**.
-4. Set the resulting Web App URL as `GOOGLE_SHEET_WEBHOOK_URL` in your environment or Antideploy secrets.
+4. Set the Web App URL as `GOOGLE_SHEET_WEBHOOK_URL` in your environment.
 
 ## Data and backups
 
