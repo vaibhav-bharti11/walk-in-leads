@@ -86,7 +86,7 @@ function renderTheme(value) {
   document.body.dataset.outlet = value;
   const brandImage = document.querySelector('.brand-image');
   if (brandImage && theme.image) {
-    brandImage.style.backgroundImage = `url("${theme.image}")`;
+    brandImage.style.setProperty('background-image', `url("${theme.image}")`, 'important');
   }
   document.querySelector('#brand-location').textContent = theme.location;
   document.querySelector('#brand-note').textContent = theme.note;

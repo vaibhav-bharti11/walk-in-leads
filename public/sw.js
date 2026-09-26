@@ -1,29 +1,31 @@
-const CACHE = 'avantika-guest-list-v3';
+const CACHE = 'avantika-guest-list-v6';
 const SHELL = [
   '/',
-  '/styles.css?v=3',
-  '/guest.js?v=3',
+  '/styles.css?v=6',
+  '/guest.js?v=6',
   '/vendor/gsap.min.js',
   '/manifest.webmanifest',
   '/icons/icon.svg',
   '/brands/kampai-interior.png',
-  '/brands/basque-garden.webp',
+  '/brands/basque-garden.jpg',
+  '/brands/embassy-cp.jpg',
+  '/brands/embassy-elan.jpg',
+  '/brands/embassy-vk.jpg',
   '/brands/basque-logo.webp',
-  '/brands/embassy-heritage.webp',
   '/fonts/cormorant-garamond.woff2',
   '/fonts/cormorant-sc.woff2',
   '/fonts/jost.woff2',
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));
   self.skipWaiting();
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
+      .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
       .then(() => self.clients.claim()),
   );
 });
@@ -31,10 +33,12 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET' || new URL(event.request.url).pathname.startsWith('/api/')) return;
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request).then((response) => {
-      const copy = response.clone();
-      caches.open(CACHE).then((cache) => cache.put(event.request, copy));
-      return response;
-    })),
+    fetch(event.request)
+      .then((response) => {
+        const copy = response.clone();
+        caches.open(CACHE).then((cache) => cache.put(event.request, copy));
+        return response;
+      })
+      .catch(() => caches.match(event.request)),
   );
 });

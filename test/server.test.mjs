@@ -146,7 +146,7 @@ test('serves the installable guest shell and its local GSAP runtime', async () =
     assert.equal(page.headers.get('x-frame-options'), 'DENY');
     assert.equal(page.headers.get('referrer-policy'), 'no-referrer');
     assert.match(page.headers.get('content-security-policy') || '', /default-src 'self'/);
-    assert.match(html, /Come in\. Stay awhile\./);
+    assert.match(html, /Come in\. Stay a while\./);
     assert.match(html, /Leave us your name and number—we’ll make sure every visit feels familiar\./);
     assert.match(html, /<body[^>]*class="guest-page"[^>]*data-brand="kampai"/);
     assert.match(html, /<select[^>]*id="outlet-select"[^>]*name="outlet"/);

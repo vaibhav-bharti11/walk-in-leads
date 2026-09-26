@@ -452,9 +452,28 @@ input[aria-invalid="true"] { border-color: #a73830; }
   transform: scale(1.03);
 }
 
-.guest-page[data-brand="kampai"] .brand-image { background-image: url("/brands/kampai-interior.png"); }
-.guest-page[data-brand="basque"] .brand-image { background-image: url("/brands/basque-garden.jpg"); }
-.guest-page[data-brand="embassy"] .brand-image { background-image: url("/brands/embassy-cp.jpg"); }
+.guest-page[data-brand="kampai"] .brand-image,
+.guest-page[data-outlet="Kampai"] .brand-image {
+  background-image: url("/brands/kampai-interior.png");
+}
+
+.guest-page[data-brand="basque"] .brand-image,
+.guest-page[data-outlet="Basque"] .brand-image {
+  background-image: url("/brands/basque-garden.jpg");
+}
+
+.guest-page[data-brand="embassy"] .brand-image,
+.guest-page[data-outlet="Embassy — Connaught Place"] .brand-image {
+  background-image: url("/brands/embassy-cp.jpg");
+}
+
+.guest-page[data-outlet="Embassy — Elan Epic"] .brand-image {
+  background-image: url("/brands/embassy-elan.jpg");
+}
+
+.guest-page[data-outlet="Embassy — Vasant Kunj"] .brand-image {
+  background-image: url("/brands/embassy-vk.jpg");
+}
 
 .brand-backdrop::after {
   content: "";
@@ -487,37 +506,40 @@ input[aria-invalid="true"] { border-color: #a73830; }
   gap: 24px;
 }
 
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.admin-panel-btn {
-  height: 58px;
+.staff-portal-link {
+  position: fixed;
+  right: max(20px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: 50;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 18px;
-  color: #fff;
-  background: rgba(17, 15, 14, .38);
-  border: 1px solid rgba(255, 255, 255, .24);
-  border-radius: 19px;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: .02em;
+  gap: 6px;
+  padding: 6px 14px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 11px;
+  font-weight: 550;
+  letter-spacing: .06em;
   text-decoration: none;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, .2), inset 0 1px 0 rgba(255, 255, 255, .16);
-  transition: background .2s ease, border-color .2s ease, transform .2s ease;
+  text-transform: uppercase;
+  background: rgba(18, 16, 15, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 20px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: all .25s ease;
 }
 
-.admin-panel-btn:hover {
-  background: rgba(255, 255, 255, .18);
-  border-color: rgba(255, 255, 255, .4);
+.staff-portal-link:hover {
+  color: #fff;
+  background: rgba(18, 16, 15, 0.75);
+  border-color: rgba(255, 255, 255, 0.38);
   transform: translateY(-1px);
 }
 
-.admin-panel-btn svg {
+.staff-portal-link svg {
+  width: 12px;
+  height: 12px;
   fill: none;
   stroke: currentColor;
   stroke-width: 2;

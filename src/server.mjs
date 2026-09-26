@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { createLeadStore, createPostgresLeadStore, escapeCsvCell } from './domain.mjs';
+import { syncLeadToGoogleSheets } from './sheets.mjs';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const BODY_LIMIT = 16 * 1024;
@@ -128,6 +129,10 @@ export function createApp({
   adminPassword,
   sessionSecret,
   secureCookies = true,
+  googleSheetId = process.env.GOOGLE_SHEET_ID,
+  googleServiceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+  googlePrivateKey = process.env.GOOGLE_PRIVATE_KEY,
+  googleSheetName = process.env.GOOGLE_SHEET_NAME || 'Sheet1',
   googleSheetWebhookUrl = process.env.GOOGLE_SHEET_WEBHOOK_URL,
 }) {
   if (!leadStore) mkdirSync(dirname(databasePath), { recursive: true });
@@ -152,22 +157,18 @@ export function createApp({
     try {
       if (request.method === 'POST' && url.pathname === '/api/leads') {
         const lead = await store.add(await readJson(request));
-        if (googleSheetWebhookUrl) {
-          fetch(googleSheetWebhookUrl, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({
-              action: 'append_lead',
-              id: lead.id,
-              name: lead.name,
-              mobile: lead.mobile,
-              outlet: lead.outlet,
-              created_at: new Date().toISOString(),
-            }),
-          }).catch((err) => {
-            console.error('Google Sheets sync failed:', err.message);
-          });
-        }
+        syncLeadToGoogleSheets({
+          lead,
+          config: {
+            googleSheetId,
+            googleServiceAccountEmail,
+            googlePrivateKey,
+            googleSheetName,
+            googleSheetWebhookUrl,
+          },
+        }).catch((err) => {
+          console.error('Google Sheets sync failed:', err.message);
+        });
         return json(response, 201, { lead });
       }
 
@@ -206,27 +207,33 @@ export function createApp({
       }
 
       if (request.method === 'GET' && url.pathname === '/api/admin/google-sheets') {
+        const isDirect = Boolean(googleSheetId && googleServiceAccountEmail && googlePrivateKey);
+        const isWebhook = Boolean(googleSheetWebhookUrl);
         return json(response, 200, {
-          configured: Boolean(googleSheetWebhookUrl),
+          configured: isDirect || isWebhook,
+          mode: isDirect ? 'google_sheets_api_v4' : (isWebhook ? 'webhook' : 'none'),
         });
       }
 
       if (request.method === 'POST' && url.pathname === '/api/admin/google-sheets/sync') {
-        if (!googleSheetWebhookUrl) {
-          return json(response, 400, { error: 'GOOGLE_SHEET_WEBHOOK_URL is not configured.' });
-        }
         const leads = await store.list();
         try {
-          await fetch(googleSheetWebhookUrl, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({
-              action: 'bulk_sync',
-              leads,
-              timestamp: new Date().toISOString(),
-            }),
+          const result = await syncLeadToGoogleSheets({
+            leads,
+            config: {
+              googleSheetId,
+              googleServiceAccountEmail,
+              googlePrivateKey,
+              googleSheetName,
+              googleSheetWebhookUrl,
+            },
           });
-          return json(response, 200, { ok: true, syncedCount: leads.length });
+          if (result.notConfigured) {
+            return json(response, 400, {
+              error: 'Google Sheets is not configured. Set GOOGLE_SHEET_ID, GOOGLE_SERVICE_ACCOUNT_EMAIL, and GOOGLE_PRIVATE_KEY in your environment, or GOOGLE_SHEET_WEBHOOK_URL.',
+            });
+          }
+          return json(response, 200, { ok: true, syncedCount: leads.length, mode: result.api });
         } catch (err) {
           return json(response, 502, { error: `Google Sheets sync failed: ${err.message}` });
         }
