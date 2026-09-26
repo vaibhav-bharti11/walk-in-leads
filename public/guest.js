@@ -14,10 +14,11 @@ const themes = {
     brand: 'kampai',
     location: 'Plate & Pour · Aerocity',
     note: 'Japanese hospitality, in the heart of Delhi.',
-    title: 'Come in. Stay awhile.',
+    title: 'Come in. Stay a while.',
     copy: 'Leave us your name and number—we’ll make sure every visit feels familiar.',
     action: 'Join Kampai’s guest list',
     color: '#1c1a19',
+    image: '/brands/kampai-interior.png',
   },
   Basque: {
     brand: 'basque',
@@ -27,6 +28,7 @@ const themes = {
     copy: 'A name and number is all we need to make your next welcome feel personal.',
     action: 'Join Basque’s guest list',
     color: '#1f4c42',
+    image: '/brands/basque-garden.jpg',
   },
   'Embassy — Connaught Place': {
     brand: 'embassy',
@@ -36,24 +38,27 @@ const themes = {
     copy: 'Share your details once, and let The Embassy remember the pleasure of having you.',
     action: 'Join The Embassy guest list',
     color: '#b11226',
+    image: '/brands/embassy-cp.jpg',
   },
   'Embassy — Elan Epic': {
     brand: 'embassy',
     location: 'Elan Epic, Gurugram · Since 1948',
     note: 'A Delhi tradition, now in Gurugram.',
-    title: 'Some welcomes never go out of style.',
+    title: 'Modern luxury, timeless taste.',
     copy: 'Share your details once, and let The Embassy remember the pleasure of having you.',
     action: 'Join The Embassy guest list',
     color: '#b11226',
+    image: '/brands/embassy-elan.jpg',
   },
   'Embassy — Vasant Kunj': {
     brand: 'embassy',
     location: 'DLF Promenade, Vasant Kunj · Since 1948',
-    note: 'A Delhi tradition, welcoming generations.',
-    title: 'Some welcomes never go out of style.',
+    note: 'Conservatory dining, welcoming generations.',
+    title: 'A serene setting for cherished moments.',
     copy: 'Share your details once, and let The Embassy remember the pleasure of having you.',
     action: 'Join The Embassy guest list',
     color: '#b11226',
+    image: '/brands/embassy-vk.jpg',
   },
 };
 let reduceMotion = false;
@@ -76,8 +81,13 @@ mm.add(
 );
 
 function renderTheme(value) {
-  const theme = themes[value];
+  const theme = themes[value] || themes.Kampai;
   document.body.dataset.brand = theme.brand;
+  document.body.dataset.outlet = value;
+  const brandImage = document.querySelector('.brand-image');
+  if (brandImage && theme.image) {
+    brandImage.style.backgroundImage = `url("${theme.image}")`;
+  }
   document.querySelector('#brand-location').textContent = theme.location;
   document.querySelector('#brand-note').textContent = theme.note;
   document.querySelector('#welcome-title').textContent = theme.title;

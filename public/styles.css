@@ -453,8 +453,8 @@ input[aria-invalid="true"] { border-color: #a73830; }
 }
 
 .guest-page[data-brand="kampai"] .brand-image { background-image: url("/brands/kampai-interior.png"); }
-.guest-page[data-brand="basque"] .brand-image { background-image: url("/brands/basque-garden.webp"); }
-.guest-page[data-brand="embassy"] .brand-image { background-image: url("/brands/embassy-heritage.webp"); }
+.guest-page[data-brand="basque"] .brand-image { background-image: url("/brands/basque-garden.jpg"); }
+.guest-page[data-brand="embassy"] .brand-image { background-image: url("/brands/embassy-cp.jpg"); }
 
 .brand-backdrop::after {
   content: "";
@@ -485,6 +485,42 @@ input[aria-invalid="true"] { border-color: #a73830; }
   align-items: center;
   justify-content: space-between;
   gap: 24px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-panel-btn {
+  height: 58px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 18px;
+  color: #fff;
+  background: rgba(17, 15, 14, .38);
+  border: 1px solid rgba(255, 255, 255, .24);
+  border-radius: 19px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  text-decoration: none;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .2), inset 0 1px 0 rgba(255, 255, 255, .16);
+  transition: background .2s ease, border-color .2s ease, transform .2s ease;
+}
+
+.admin-panel-btn:hover {
+  background: rgba(255, 255, 255, .18);
+  border-color: rgba(255, 255, 255, .4);
+  transform: translateY(-1px);
+}
+
+.admin-panel-btn svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
 }
 
 .group-wordmark {
@@ -745,6 +781,29 @@ input[aria-invalid="true"] { border-color: #a73830; }
 .filter-control label { color: var(--muted); font-size: 13px; }
 .filter-control select { min-width: 190px; height: 44px; color: var(--ink); background: transparent; border: 0; outline: 0; font: inherit; font-weight: 600; cursor: pointer; }
 .filter-control:has(select:focus-visible) { outline: 3px solid rgba(181,138,74,.42); outline-offset: 2px; }
+
+.toolbar-actions { display: flex; align-items: center; gap: 10px; }
+.sync-button {
+  min-height: 52px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 18px;
+  color: var(--oxblood);
+  background: rgba(150, 31, 31, 0.08);
+  border: 1px solid rgba(150, 31, 31, 0.2);
+  border-radius: 16px;
+  font-size: 14px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: all .2s ease;
+}
+.sync-button:hover {
+  background: rgba(150, 31, 31, 0.16);
+  border-color: rgba(150, 31, 31, 0.35);
+}
+.sync-button svg { fill: currentColor; }
+.sync-button:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .export-button { min-height: 52px; display: inline-flex; align-items: center; gap: 9px; padding: 0 20px; color: #fff; text-decoration: none; font-size: 14px; font-weight: 650; }
 .export-button svg { width: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }

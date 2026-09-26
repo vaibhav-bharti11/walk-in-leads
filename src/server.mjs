@@ -22,6 +22,10 @@ const STATIC_FILES = new Map([
   ['/sw.js', ['public/sw.js', 'text/javascript; charset=utf-8']],
   ['/icons/icon.svg', ['public/icons/icon.svg', 'image/svg+xml']],
   ['/brands/kampai-interior.png', ['public/brands/kampai-interior.png', 'image/png']],
+  ['/brands/basque-garden.jpg', ['public/brands/basque-garden.jpg', 'image/jpeg']],
+  ['/brands/embassy-cp.jpg', ['public/brands/embassy-cp.jpg', 'image/jpeg']],
+  ['/brands/embassy-elan.jpg', ['public/brands/embassy-elan.jpg', 'image/jpeg']],
+  ['/brands/embassy-vk.jpg', ['public/brands/embassy-vk.jpg', 'image/jpeg']],
   ['/brands/basque-garden.webp', ['public/brands/basque-garden.webp', 'image/webp']],
   ['/brands/basque-logo.webp', ['public/brands/basque-logo.webp', 'image/webp']],
   ['/brands/embassy-heritage.webp', ['public/brands/embassy-heritage.webp', 'image/webp']],
@@ -118,7 +122,14 @@ function csvFor(leads) {
   return `\uFEFF${rows.map((row) => row.map(escapeCsvCell).join(',')).join('\r\n')}\r\n`;
 }
 
-export function createApp({ databasePath, leadStore, adminPassword, sessionSecret, secureCookies = true }) {
+export function createApp({
+  databasePath,
+  leadStore,
+  adminPassword,
+  sessionSecret,
+  secureCookies = true,
+  googleSheetWebhookUrl = process.env.GOOGLE_SHEET_WEBHOOK_URL,
+}) {
   if (!leadStore) mkdirSync(dirname(databasePath), { recursive: true });
   const store = leadStore || createLeadStore(databasePath);
   const sessions = createSessionTools(sessionSecret);
@@ -141,6 +152,22 @@ export function createApp({ databasePath, leadStore, adminPassword, sessionSecre
     try {
       if (request.method === 'POST' && url.pathname === '/api/leads') {
         const lead = await store.add(await readJson(request));
+        if (googleSheetWebhookUrl) {
+          fetch(googleSheetWebhookUrl, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              action: 'append_lead',
+              id: lead.id,
+              name: lead.name,
+              mobile: lead.mobile,
+              outlet: lead.outlet,
+              created_at: new Date().toISOString(),
+            }),
+          }).catch((err) => {
+            console.error('Google Sheets sync failed:', err.message);
+          });
+        }
         return json(response, 201, { lead });
       }
 
@@ -176,6 +203,33 @@ export function createApp({ databasePath, leadStore, adminPassword, sessionSecre
           total: await store.count({ outlet }),
           leads: await store.list({ outlet }),
         });
+      }
+
+      if (request.method === 'GET' && url.pathname === '/api/admin/google-sheets') {
+        return json(response, 200, {
+          configured: Boolean(googleSheetWebhookUrl),
+        });
+      }
+
+      if (request.method === 'POST' && url.pathname === '/api/admin/google-sheets/sync') {
+        if (!googleSheetWebhookUrl) {
+          return json(response, 400, { error: 'GOOGLE_SHEET_WEBHOOK_URL is not configured.' });
+        }
+        const leads = await store.list();
+        try {
+          await fetch(googleSheetWebhookUrl, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              action: 'bulk_sync',
+              leads,
+              timestamp: new Date().toISOString(),
+            }),
+          });
+          return json(response, 200, { ok: true, syncedCount: leads.length });
+        } catch (err) {
+          return json(response, 502, { error: `Google Sheets sync failed: ${err.message}` });
+        }
       }
 
       if (request.method === 'GET' && url.pathname === '/api/admin/export') {

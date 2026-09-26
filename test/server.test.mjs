@@ -161,7 +161,7 @@ test('serves the installable guest shell and its local GSAP runtime', async () =
       assert.match(html, new RegExp(`<option[^>]*value="${outlet}"`));
     }
     assert.doesNotMatch(html, /class="venue-panel"/);
-    assert.doesNotMatch(html, /href="\/admin"/);
+    assert.match(html, /href="\/admin"/);
 
     for (const path of [
       '/manifest.webmanifest',
@@ -171,6 +171,10 @@ test('serves the installable guest shell and its local GSAP runtime', async () =
       '/icons/icon.svg',
       '/vendor/gsap.min.js',
       '/brands/kampai-interior.png',
+      '/brands/basque-garden.jpg',
+      '/brands/embassy-cp.jpg',
+      '/brands/embassy-elan.jpg',
+      '/brands/embassy-vk.jpg',
       '/brands/basque-garden.webp',
       '/brands/basque-logo.webp',
       '/brands/embassy-heritage.webp',

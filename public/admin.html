@@ -62,10 +62,16 @@
                 <option>Embassy — Vasant Kunj</option>
               </select>
             </div>
-            <a id="export-link" class="export-button liquid-button" href="/api/admin/export" download>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 19h14"/></svg>
-              Download guest list
-            </a>
+            <div class="toolbar-actions">
+              <button id="sheets-sync-btn" class="sync-button secondary-action" type="button" title="Sync leads to Google Sheets">
+                <svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-2h2v2zm0-4H7v-2h2v2zm0-4H7V7h2v2zm4 8h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V7h2v2zm4 8h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V7h2v2z"/></svg>
+                <span>Google Sheets Sync</span>
+              </button>
+              <a id="export-link" class="export-button liquid-button" href="/api/admin/export" download>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 19h14"/></svg>
+                Download guest list
+              </a>
+            </div>
           </div>
 
           <p id="ledger-status" class="ledger-status" role="status" aria-live="polite"></p>

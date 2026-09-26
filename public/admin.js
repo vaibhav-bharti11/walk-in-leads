@@ -108,6 +108,24 @@ loginForm.addEventListener('submit', async (event) => {
 
 outletFilter.addEventListener('change', loadLeads);
 
+const sheetsSyncBtn = document.querySelector('#sheets-sync-btn');
+if (sheetsSyncBtn) {
+  sheetsSyncBtn.addEventListener('click', async () => {
+    sheetsSyncBtn.disabled = true;
+    ledgerStatus.textContent = 'Syncing leads with Google Sheets…';
+    try {
+      const response = await fetch('/api/admin/google-sheets/sync', { method: 'POST' });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error);
+      ledgerStatus.textContent = `✓ Successfully synced ${payload.syncedCount} leads to Google Sheets.`;
+    } catch (err) {
+      ledgerStatus.textContent = `Google Sheets sync: ${err.message}`;
+    } finally {
+      sheetsSyncBtn.disabled = false;
+    }
+  });
+}
+
 document.querySelector('#sign-out').addEventListener('click', async () => {
   await fetch('/api/admin/logout', { method: 'POST' });
   showLogin('You’re signed out.');
