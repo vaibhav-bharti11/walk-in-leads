@@ -3,4 +3,6 @@ data/
 .env
 .superpowers/
 *.log
-
+avantika-*.json
+*-key.json
+*.pem
