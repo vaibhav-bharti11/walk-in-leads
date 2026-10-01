@@ -3,6 +3,10 @@ import { createSign } from 'node:crypto';
 let cachedToken = null;
 let tokenExpiresAt = 0;
 
+export function leadToSheetRow(item) {
+  return [item.id, item.name, item.mobile, item.outlet, item.pax, item.visit_date, item.created_at || new Date().toISOString()];
+}
+
 /**
  * Mint or return a cached OAuth2 access token for Google Sheets API v4 using a Service Account.
  */
@@ -65,7 +69,7 @@ export async function appendToGoogleSheet({
   rows,
 }) {
   const token = await getGoogleServiceAccountToken({ clientEmail, privateKey });
-  const range = `${sheetName}!A:E`;
+  const range = `${sheetName}!A:G`;
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(
     spreadsheetId
   )}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
@@ -112,13 +116,7 @@ export async function syncLeadToGoogleSheets({
     const list = leads || (lead ? [lead] : []);
     if (!list.length) return { count: 0 };
 
-    const rows = list.map((item) => [
-      item.id,
-      item.name,
-      item.mobile,
-      item.outlet,
-      item.created_at || new Date().toISOString(),
-    ]);
+    const rows = list.map(leadToSheetRow);
 
     await appendToGoogleSheet({
       spreadsheetId: googleSheetId,

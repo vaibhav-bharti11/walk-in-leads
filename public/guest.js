@@ -2,6 +2,8 @@ const { gsap } = window;
 const form = document.querySelector('#lead-form');
 const nameInput = document.querySelector('#guest-name');
 const mobileInput = document.querySelector('#guest-mobile');
+const paxInput = document.querySelector('#guest-pax');
+const visitDateInput = document.querySelector('#visit-date');
 const submitButton = form.querySelector('button[type="submit"]');
 const outletSelect = document.querySelector('#outlet-select');
 const checkInView = document.querySelector('#check-in-view');
@@ -62,6 +64,14 @@ const themes = {
   },
 };
 let reduceMotion = false;
+
+function today() {
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  return now.toISOString().slice(0, 10);
+}
+
+visitDateInput.value = today();
 
 document.documentElement.classList.toggle('reduce-transparency', reduceTransparency.matches);
 reduceTransparency.addEventListener?.('change', (event) => {
@@ -132,15 +142,20 @@ function setError(input, message) {
 function validate({ showErrors = false } = {}) {
   const nameValid = nameInput.value.trim().replace(/\s+/g, ' ').length >= 2;
   const mobileValid = /^[6-9]\d{9}$/.test(mobileDigits());
+  const pax = Number(paxInput.value);
+  const paxValid = Number.isInteger(pax) && pax >= 1 && pax <= 50;
+  const visitDateValid = /^\d{4}-\d{2}-\d{2}$/.test(visitDateInput.value);
   if (showErrors) {
     setError(nameInput, nameValid ? '' : 'Please enter your name.');
     setError(mobileInput, mobileValid ? '' : 'Enter a valid 10-digit mobile number.');
+    setError(paxInput, paxValid ? '' : 'Enter 1 to 50 guests.');
+    setError(visitDateInput, visitDateValid ? '' : 'Choose a visit date.');
   }
-  submitButton.disabled = !(nameValid && mobileValid);
-  return nameValid && mobileValid;
+  submitButton.disabled = !(nameValid && mobileValid && paxValid && visitDateValid);
+  return nameValid && mobileValid && paxValid && visitDateValid;
 }
 
-for (const input of [nameInput, mobileInput]) {
+for (const input of [nameInput, mobileInput, paxInput, visitDateInput]) {
   input.addEventListener('input', () => {
     setError(input, '');
     status.textContent = '';
@@ -165,12 +180,20 @@ form.addEventListener('submit', async (event) => {
     const response = await fetch('/api/leads', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name: nameInput.value, mobile: mobileInput.value, outlet: selectedOutlet }),
+      body: JSON.stringify({
+        name: nameInput.value,
+        mobile: mobileInput.value,
+        outlet: selectedOutlet,
+        pax: paxInput.value,
+        visit_date: visitDateInput.value,
+      }),
     });
     const payload = await response.json();
     if (!response.ok) {
       if (payload.field === 'name') setError(nameInput, payload.error);
       if (payload.field === 'mobile') setError(mobileInput, payload.error);
+      if (payload.field === 'pax') setError(paxInput, payload.error);
+      if (payload.field === 'visit_date') setError(visitDateInput, payload.error);
       throw new Error(payload.error);
     }
 
@@ -206,6 +229,8 @@ document.querySelector('#next-guest').addEventListener('click', () => {
   form.reset();
   nameInput.value = '';
   mobileInput.value = '';
+  paxInput.value = '';
+  visitDateInput.value = today();
   checkInView.hidden = false;
   successView.hidden = true;
   gsap.set([checkInView, successView], { clearProps: 'all' });

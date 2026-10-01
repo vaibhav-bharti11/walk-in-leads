@@ -5,7 +5,7 @@ import { createServer } from 'node:http';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { createLeadStore, createPostgresLeadStore, escapeCsvCell } from './domain.mjs';
+import { OUTLETS, createLeadStore, createPostgresLeadStore, escapeCsvCell } from './domain.mjs';
 import { syncLeadToGoogleSheets } from './sheets.mjs';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -87,8 +87,8 @@ function createSessionTools(secret) {
   }
 
   return {
-    issue() {
-      const payload = `admin:${Date.now() + SESSION_AGE_SECONDS * 1000}`;
+    issue(scope) {
+      const payload = `admin:${scope}:${Date.now() + SESSION_AGE_SECONDS * 1000}`;
       return `${Buffer.from(payload).toString('base64url')}.${sign(payload)}`;
     },
     verify(token) {
@@ -98,10 +98,10 @@ function createSessionTools(secret) {
         const payload = Buffer.from(encoded, 'base64url').toString('utf8');
         const expected = sign(payload);
         if (signature.length !== expected.length || !timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return false;
-        const [role, expires] = payload.split(':');
-        return role === 'admin' && Number(expires) > Date.now();
+        const [role, scope, expires] = payload.split(':');
+        return role === 'admin' && Number(expires) > Date.now() ? { scope } : null;
       } catch {
-        return false;
+        return null;
       }
     },
   };
@@ -117,8 +117,8 @@ function cookieValue(request, name) {
 
 function csvFor(leads) {
   const rows = [
-    ['Name', 'Mobile', 'Outlet', 'Date'],
-    ...leads.map((lead) => [lead.name, lead.mobile, lead.outlet, lead.created_at]),
+    ['Name', 'Mobile', 'Outlet', 'Guests', 'Visit date', 'Created'],
+    ...leads.map((lead) => [lead.name, lead.mobile, lead.outlet, lead.pax, lead.visit_date, lead.created_at]),
   ];
   return `\uFEFF${rows.map((row) => row.map(escapeCsvCell).join(',')).join('\r\n')}\r\n`;
 }
@@ -127,6 +127,7 @@ export function createApp({
   databasePath,
   leadStore,
   adminPassword,
+  companyPasswords = {},
   sessionSecret,
   secureCookies = true,
   googleSheetId = process.env.GOOGLE_SHEET_ID,
@@ -142,9 +143,30 @@ export function createApp({
   const cookieFlags = `Path=/; HttpOnly; SameSite=Strict${secureCookies ? '; Secure' : ''}`;
   // ponytail: per-process limiting fits one Node instance; use a proxy/shared store when horizontally scaled.
   const loginFailures = new Map();
+  const credentials = new Map([
+    ['avantika', { password: adminPassword, scope: 'all' }],
+    ['kampai', { password: companyPasswords.kampai, scope: 'kampai' }],
+    ['basque', { password: companyPasswords.basque, scope: 'basque' }],
+    ['embassy', { password: companyPasswords.embassy, scope: 'embassy' }],
+  ].filter(([, credential]) => credential.password));
+  const scopeOutlets = {
+    all: OUTLETS,
+    kampai: ['Kampai'],
+    basque: ['Basque'],
+    embassy: OUTLETS.filter((outlet) => outlet.startsWith('Embassy — ')),
+  };
 
   function authorized(request) {
     return sessions.verify(cookieValue(request, 'avantika_session'));
+  }
+
+  async function scopedLeads(session, outlet) {
+    const allowedOutlets = scopeOutlets[session.scope] || [];
+    if (outlet && !allowedOutlets.includes(outlet)) {
+      throw Object.assign(new Error('This login cannot access that outlet.'), { status: 403 });
+    }
+    const leads = await store.list({ outlet });
+    return session.scope === 'all' ? leads : leads.filter((lead) => allowedOutlets.includes(lead.outlet));
   }
 
   async function handler(request, response) {
@@ -182,27 +204,33 @@ export function createApp({
             'retry-after': String(Math.ceil((failures.resetAt - now) / 1000)),
           });
         }
-        const { password } = await readJson(request);
-        if (!safePasswordEqual(password, adminPassword, passwordSalt)) {
+        const { username, password } = await readJson(request);
+        const credential = credentials.get(String(username || '').trim().toLowerCase());
+        const passwordMatches = safePasswordEqual(password, credential?.password || adminPassword, passwordSalt);
+        if (!credential || !passwordMatches) {
           failures.count += 1;
           loginFailures.set(client, failures);
           return json(response, 401, { error: 'That password is not correct.' });
         }
         loginFailures.delete(client);
         return empty(response, 204, {
-          'set-cookie': `avantika_session=${sessions.issue()}; Max-Age=${SESSION_AGE_SECONDS}; ${cookieFlags}`,
+          'set-cookie': `avantika_session=${sessions.issue(credential.scope)}; Max-Age=${SESSION_AGE_SECONDS}; ${cookieFlags}`,
         });
       }
 
-      if (url.pathname.startsWith('/api/admin/') && !authorized(request)) {
+      const session = authorized(request);
+      if (url.pathname.startsWith('/api/admin/') && !session) {
         return json(response, 401, { error: 'Admin sign-in required.' });
       }
 
       if (request.method === 'GET' && url.pathname === '/api/admin/leads') {
         const outlet = url.searchParams.get('outlet') || undefined;
+        const leads = await scopedLeads(session, outlet);
         return json(response, 200, {
-          total: await store.count({ outlet }),
-          leads: await store.list({ outlet }),
+          total: leads.length,
+          leads,
+          scope: session.scope,
+          allowedOutlets: scopeOutlets[session.scope],
         });
       }
 
@@ -216,7 +244,7 @@ export function createApp({
       }
 
       if (request.method === 'POST' && url.pathname === '/api/admin/google-sheets/sync') {
-        const leads = await store.list();
+        const leads = await scopedLeads(session);
         try {
           const result = await syncLeadToGoogleSheets({
             leads,
@@ -241,7 +269,7 @@ export function createApp({
 
       if (request.method === 'GET' && url.pathname === '/api/admin/export') {
         const outlet = url.searchParams.get('outlet') || undefined;
-        const payload = csvFor(await store.list({ outlet }));
+        const payload = csvFor(await scopedLeads(session, outlet));
         response.writeHead(200, {
           'content-type': 'text/csv; charset=utf-8',
           'content-disposition': 'attachment; filename="avantika-guest-list.csv"',
@@ -283,9 +311,14 @@ export function createApp({
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const production = process.env.NODE_ENV === 'production';
   const adminPassword = process.env.ADMIN_PASSWORD;
+  const companyPasswords = {
+    kampai: process.env.KAMPAI_ADMIN_PASSWORD,
+    basque: process.env.BASQUE_ADMIN_PASSWORD,
+    embassy: process.env.EMBASSY_ADMIN_PASSWORD,
+  };
   const sessionSecret = process.env.SESSION_SECRET;
-  if (production && (!adminPassword || !sessionSecret)) {
-    throw new Error('ADMIN_PASSWORD and SESSION_SECRET are required in production.');
+  if (production && (!adminPassword || !sessionSecret || Object.values(companyPasswords).some((password) => !password))) {
+    throw new Error('ADMIN_PASSWORD, KAMPAI_ADMIN_PASSWORD, BASQUE_ADMIN_PASSWORD, EMBASSY_ADMIN_PASSWORD, and SESSION_SECRET are required in production.');
   }
   const databasePath = process.env.DATABASE_PATH || join(ROOT, 'data', 'leads.db');
   const leadStore = process.env.DATABASE_URL
@@ -295,6 +328,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     databasePath,
     leadStore,
     adminPassword: adminPassword || 'change-me-before-production',
+    companyPasswords,
     sessionSecret: sessionSecret || 'local-development-secret-change-me',
     secureCookies: production,
   });

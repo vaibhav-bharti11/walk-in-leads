@@ -35,7 +35,22 @@ export function normalizeLead(input = {}) {
     throw new LeadValidationError('outlet', 'Choose one of the listed outlets.');
   }
 
-  return { name, mobile, outlet: input.outlet };
+  const pax = Number(input.pax);
+  if (!Number.isInteger(pax) || pax < 1 || pax > 50) {
+    throw new LeadValidationError('pax', 'Enter a party size from 1 to 50.');
+  }
+
+  const visitDate = typeof input.visit_date === 'string' ? input.visit_date : '';
+  const [year, month, day] = visitDate.split('-').map(Number);
+  const parsedDate = new Date(Date.UTC(year, month - 1, day));
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(visitDate)
+    || parsedDate.getUTCFullYear() !== year
+    || parsedDate.getUTCMonth() !== month - 1
+    || parsedDate.getUTCDate() !== day) {
+    throw new LeadValidationError('visit_date', 'Choose a valid visit date.');
+  }
+
+  return { name, mobile, outlet: input.outlet, pax, visit_date: visitDate };
 }
 
 export function escapeCsvCell(value) {
@@ -64,16 +79,20 @@ export function createLeadStore(filename) {
     );
   `);
 
-  const insert = database.prepare('INSERT INTO leads (name, mobile, outlet) VALUES (?, ?, ?)');
-  const listAll = database.prepare('SELECT id, name, mobile, outlet, created_at FROM leads ORDER BY id DESC');
-  const listOutlet = database.prepare('SELECT id, name, mobile, outlet, created_at FROM leads WHERE outlet = ? ORDER BY id DESC');
+  const columns = new Set(database.prepare('PRAGMA table_info(leads)').all().map(({ name }) => name));
+  if (!columns.has('pax')) database.exec('ALTER TABLE leads ADD COLUMN pax INTEGER');
+  if (!columns.has('visit_date')) database.exec('ALTER TABLE leads ADD COLUMN visit_date TEXT');
+
+  const insert = database.prepare('INSERT INTO leads (name, mobile, outlet, pax, visit_date) VALUES (?, ?, ?, ?, ?)');
+  const listAll = database.prepare('SELECT id, name, mobile, outlet, pax, visit_date, created_at FROM leads ORDER BY id DESC');
+  const listOutlet = database.prepare('SELECT id, name, mobile, outlet, pax, visit_date, created_at FROM leads WHERE outlet = ? ORDER BY id DESC');
   const countAll = database.prepare('SELECT COUNT(*) AS total FROM leads');
   const countOutlet = database.prepare('SELECT COUNT(*) AS total FROM leads WHERE outlet = ?');
 
   return {
     add(input) {
       const lead = normalizeLead(input);
-      const result = insert.run(lead.name, lead.mobile, lead.outlet);
+      const result = insert.run(lead.name, lead.mobile, lead.outlet, lead.pax, lead.visit_date);
       return { id: Number(result.lastInsertRowid), ...lead };
     },
     list({ outlet } = {}) {
@@ -98,14 +117,26 @@ export async function createPostgresLeadStore(connectionString, PoolClass = Pool
       name TEXT NOT NULL,
       mobile TEXT NOT NULL,
       outlet TEXT NOT NULL,
+      pax INTEGER,
+      visit_date DATE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
+  await pool.query('ALTER TABLE leads ADD COLUMN IF NOT EXISTS pax INTEGER; ALTER TABLE leads ADD COLUMN IF NOT EXISTS visit_date DATE;');
+
+  function dateOnly(value) {
+    if (!(value instanceof Date)) return value;
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    const day = String(value.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
 
   function leadFromRow(row) {
     return {
       ...row,
       id: Number(row.id),
+      visit_date: dateOnly(row.visit_date),
       created_at: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
     };
   }
@@ -114,16 +145,16 @@ export async function createPostgresLeadStore(connectionString, PoolClass = Pool
     async add(input) {
       const lead = normalizeLead(input);
       const { rows } = await pool.query(
-        'INSERT INTO leads (name, mobile, outlet) VALUES ($1, $2, $3) RETURNING id',
-        [lead.name, lead.mobile, lead.outlet],
+        'INSERT INTO leads (name, mobile, outlet, pax, visit_date) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+        [lead.name, lead.mobile, lead.outlet, lead.pax, lead.visit_date],
       );
       return { id: Number(rows[0].id), ...lead };
     },
     async list({ outlet } = {}) {
       checkedOutlet(outlet);
       const { rows } = outlet
-        ? await pool.query('SELECT id, name, mobile, outlet, created_at FROM leads WHERE outlet = $1 ORDER BY id DESC', [outlet])
-        : await pool.query('SELECT id, name, mobile, outlet, created_at FROM leads ORDER BY id DESC');
+        ? await pool.query('SELECT id, name, mobile, outlet, pax, visit_date, created_at FROM leads WHERE outlet = $1 ORDER BY id DESC', [outlet])
+        : await pool.query('SELECT id, name, mobile, outlet, pax, visit_date, created_at FROM leads ORDER BY id DESC');
       return rows.map(leadFromRow);
     },
     async count({ outlet } = {}) {

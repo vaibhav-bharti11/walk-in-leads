@@ -1,11 +1,11 @@
 {
-  "name": "Avantika Guest List",
-  "short_name": "Guest List",
-  "description": "Walk-in guest capture for Avantika Group restaurants.",
+  "name": "Avantika Hospitality Collection",
+  "short_name": "Avantika Concierge",
+  "description": "Guest concierge and private ledger for Avantika Hospitality Collection.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#faf6ee",
-  "theme_color": "#961f1f",
+  "background_color": "#171514",
+  "theme_color": "#171514",
   "icons": [
     {
       "src": "/icons/icon.svg",

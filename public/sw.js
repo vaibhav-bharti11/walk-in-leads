@@ -1,8 +1,8 @@
-const CACHE = 'avantika-guest-list-v6';
+const CACHE = 'avantika-hospitality-v11';
 const SHELL = [
   '/',
-  '/styles.css?v=6',
-  '/guest.js?v=6',
+  '/styles.css?v=11',
+  '/guest.js?v=11',
   '/vendor/gsap.min.js',
   '/manifest.webmanifest',
   '/icons/icon.svg',

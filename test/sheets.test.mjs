@@ -1,6 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { syncLeadToGoogleSheets } from '../src/sheets.mjs';
+import { leadToSheetRow, syncLeadToGoogleSheets } from '../src/sheets.mjs';
+
+test('maps party size and visit date into Google Sheets rows', () => {
+  assert.deepEqual(leadToSheetRow({
+    id: 1,
+    name: 'Aditi',
+    mobile: '9876543210',
+    outlet: 'Basque',
+    pax: 4,
+    visit_date: '2026-10-01',
+    created_at: '2026-10-01T10:00:00.000Z',
+  }), [1, 'Aditi', '9876543210', 'Basque', 4, '2026-10-01', '2026-10-01T10:00:00.000Z']);
+});
 
 test('syncLeadToGoogleSheets handles unconfigured state gracefully', async () => {
   const result = await syncLeadToGoogleSheets({

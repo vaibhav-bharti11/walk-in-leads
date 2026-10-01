@@ -8,13 +8,19 @@ import test from 'node:test';
 
 import { createApp } from '../src/server.mjs';
 
-async function startTestApp() {
+async function startTestApp(options = {}) {
   const directory = mkdtempSync(join(tmpdir(), 'walkin-server-'));
   const app = createApp({
     databasePath: join(directory, 'leads.db'),
     adminPassword: 'correct horse battery staple',
+    companyPasswords: {
+      kampai: 'kampai test password',
+      basque: 'basque test password',
+      embassy: 'embassy test password',
+    },
     sessionSecret: 'test-session-secret-that-is-long-enough',
     secureCookies: false,
+    ...options,
   });
   const server = createServer(app.handler);
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -45,11 +51,11 @@ test('captures a lead and rejects invalid or oversized input', async () => {
   try {
     const saved = await request(`${app.baseUrl}/api/leads`, {
       method: 'POST',
-      json: { name: 'Aditi Sharma', mobile: '+91 98765 43210', outlet: 'Basque' },
+      json: { name: 'Aditi Sharma', mobile: '+91 98765 43210', outlet: 'Basque', pax: 4, visit_date: '2026-10-01' },
     });
     assert.equal(saved.status, 201);
     assert.deepEqual(await saved.json(), {
-      lead: { id: 1, name: 'Aditi Sharma', mobile: '9876543210', outlet: 'Basque' },
+      lead: { id: 1, name: 'Aditi Sharma', mobile: '9876543210', outlet: 'Basque', pax: 4, visit_date: '2026-10-01' },
     });
 
     const invalid = await request(`${app.baseUrl}/api/leads`, {
@@ -82,8 +88,8 @@ test('protects admin listing and filtered CSV export with a signed session', asy
   const app = await startTestApp();
   try {
     for (const lead of [
-      { name: '=HYPERLINK("bad")', mobile: '9876543210', outlet: 'Kampai' },
-      { name: 'Neha Bansal', mobile: '9987654321', outlet: 'Basque' },
+      { name: '=HYPERLINK("bad")', mobile: '9876543210', outlet: 'Kampai', pax: 2, visit_date: '2026-10-01' },
+      { name: 'Neha Bansal', mobile: '9987654321', outlet: 'Basque', pax: 5, visit_date: '2026-10-02' },
     ]) {
       assert.equal((await request(`${app.baseUrl}/api/leads`, { method: 'POST', json: lead })).status, 201);
     }
@@ -91,12 +97,12 @@ test('protects admin listing and filtered CSV export with a signed session', asy
     assert.equal((await fetch(`${app.baseUrl}/api/admin/leads`)).status, 401);
     assert.equal((await request(`${app.baseUrl}/api/admin/login`, {
       method: 'POST',
-      json: { password: 'wrong' },
+      json: { username: 'avantika', password: 'wrong' },
     })).status, 401);
 
     const login = await request(`${app.baseUrl}/api/admin/login`, {
       method: 'POST',
-      json: { password: 'correct horse battery staple' },
+      json: { username: 'avantika', password: 'correct horse battery staple' },
     });
     assert.equal(login.status, 204);
     const cookie = login.headers.get('set-cookie').split(';', 1)[0];
@@ -124,6 +130,7 @@ test('protects admin listing and filtered CSV export with a signed session', asy
     assert.equal(exported.status, 200);
     assert.match(exported.headers.get('content-type'), /text\/csv/);
     assert.match(await exported.text(), /"'=HYPERLINK\(""bad""\)"/);
+    assert.match(await (await fetch(`${app.baseUrl}/api/admin/export`, { headers: { cookie } })).text(), /Name,Mobile,Outlet,Guests,Visit date,Created/);
 
     const logout = await fetch(`${app.baseUrl}/api/admin/logout`, {
       method: 'POST',
@@ -131,6 +138,46 @@ test('protects admin listing and filtered CSV export with a signed session', asy
     });
     assert.equal(logout.status, 204);
     assert.match(logout.headers.get('set-cookie'), /Max-Age=0/);
+  } finally {
+    await app.close();
+  }
+});
+
+test('limits company logins to their own restaurant leads and exports', async () => {
+  const app = await startTestApp();
+  try {
+    for (const lead of [
+      { name: 'Kampai Guest', mobile: '9876543210', outlet: 'Kampai', pax: 2, visit_date: '2026-10-01' },
+      { name: 'Basque Guest', mobile: '9987654321', outlet: 'Basque', pax: 3, visit_date: '2026-10-01' },
+      { name: 'Embassy Guest', mobile: '9765432109', outlet: 'Embassy — Elan Epic', pax: 4, visit_date: '2026-10-01' },
+    ]) assert.equal((await request(`${app.baseUrl}/api/leads`, { method: 'POST', json: lead })).status, 201);
+
+    const login = await request(`${app.baseUrl}/api/admin/login`, {
+      method: 'POST',
+      json: { username: 'kampai', password: 'kampai test password' },
+    });
+    assert.equal(login.status, 204);
+    const cookie = login.headers.get('set-cookie').split(';', 1)[0];
+
+    const listing = await fetch(`${app.baseUrl}/api/admin/leads`, { headers: { cookie } });
+    assert.equal(listing.status, 200);
+    const body = await listing.json();
+    assert.equal(body.total, 1);
+    assert.equal(body.scope, 'kampai');
+    assert.deepEqual(body.allowedOutlets, ['Kampai']);
+    assert.deepEqual(body.leads.map(({ created_at, ...lead }) => lead), [{
+        id: 1,
+        name: 'Kampai Guest',
+        mobile: '9876543210',
+        outlet: 'Kampai',
+        pax: 2,
+        visit_date: '2026-10-01',
+    }]);
+    assert.match(body.leads[0].created_at, /^2026-|^20\d\d-/);
+    assert.equal((await fetch(`${app.baseUrl}/api/admin/leads?outlet=${encodeURIComponent('Basque')}`, { headers: { cookie } })).status, 403);
+    const csv = await (await fetch(`${app.baseUrl}/api/admin/export`, { headers: { cookie } })).text();
+    assert.match(csv, /Kampai Guest/);
+    assert.doesNotMatch(csv, /Basque Guest|Embassy Guest/);
   } finally {
     await app.close();
   }
@@ -155,6 +202,8 @@ test('serves the installable guest shell and its local GSAP runtime', async () =
     }
     assert.match(html, /<label[^>]*for="guest-name"[^>]*>Your name<\/label>/);
     assert.match(html, /<label[^>]*for="guest-mobile"[^>]*>Mobile number<\/label>/);
+    assert.match(html, /<label[^>]*for="guest-pax"[^>]*>Number of guests<\/label>/);
+    assert.match(html, /<label[^>]*for="visit-date"[^>]*>Date of visit<\/label>/);
     assert.match(html, /Join Kampai’s guest list/);
     assert.match(html, /manifest\.webmanifest/);
     for (const outlet of ['Kampai', 'Basque', 'Embassy — Connaught Place', 'Embassy — Elan Epic', 'Embassy — Vasant Kunj']) {
@@ -199,13 +248,13 @@ test('rate limits repeated admin password failures from one client', async () =>
     for (let attempt = 1; attempt <= 5; attempt += 1) {
       const response = await request(`${app.baseUrl}/api/admin/login`, {
         method: 'POST',
-        json: { password: 'wrong' },
+        json: { username: 'avantika', password: 'wrong' },
       });
       assert.equal(response.status, 401);
     }
     const blocked = await request(`${app.baseUrl}/api/admin/login`, {
       method: 'POST',
-      json: { password: 'correct horse battery staple' },
+      json: { username: 'avantika', password: 'correct horse battery staple' },
     });
     assert.equal(blocked.status, 429);
     assert.match(blocked.headers.get('retry-after') || '', /^\d+$/);
@@ -221,13 +270,20 @@ test('serves the protected guest-book shell with accessible controls', async () 
     assert.equal(page.status, 200);
     const html = await page.text();
     assert.match(html, /<form[^>]*id="login-form"/);
+    assert.match(html, /<label[^>]*for="admin-username"[^>]*>Username<\/label>/);
     assert.match(html, /<label[^>]*for="admin-password"[^>]*>Password<\/label>/);
     assert.match(html, /<h1[^>]*>Guest book<\/h1>/);
     assert.match(html, /<label[^>]*for="outlet-filter"[^>]*>Outlet<\/label>/);
-    for (const heading of ['Guest', 'Mobile', 'Outlet', 'Arrived']) assert.match(html, new RegExp(`<th[^>]*>${heading}</th>`));
+    for (const heading of ['Guest', 'Mobile', 'Outlet', 'Guests', 'Visit date', 'Arrived']) assert.match(html, new RegExp(`<th[^>]*>${heading}</th>`));
     assert.match(html, /Download guest list/);
     assert.match(html, /Sign out/);
-    assert.equal((await fetch(`${app.baseUrl}/admin.js`)).status, 200);
+    const adminScriptResponse = await fetch(`${app.baseUrl}/admin.js`);
+    assert.equal(adminScriptResponse.status, 200);
+    const adminScript = await adminScriptResponse.text();
+    assert.match(adminScript, /escapeHtml\(lead\.name\)/);
+    assert.match(adminScript, /sheetLink\.hidden = payload\.scope !== 'all'/);
+    assert.doesNotMatch(adminScript, /sheetCard\.hidden = payload\.scope !== 'all'/);
+    assert.match(adminScript, /outletFilter\.value = ''/);
   } finally {
     await app.close();
   }

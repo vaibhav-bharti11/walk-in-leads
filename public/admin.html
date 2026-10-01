@@ -3,91 +3,205 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#faf6ee">
+    <meta name="theme-color" content="#181514">
     <meta name="robots" content="noindex, nofollow">
-    <title>Guest book | Avantika Group</title>
+    <title>Concierge Ledger | Avantika Hospitality Collection</title>
     <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/styles.css?v=11">
     <script src="/vendor/gsap.min.js" defer></script>
-    <script src="/admin.js?v=2" defer></script>
+    <script src="/admin.js?v=11" defer></script>
   </head>
   <body class="admin-page">
     <main>
+      <!-- SIGN IN VIEW -->
       <section id="login-view" class="login-view" aria-labelledby="login-heading">
-        <div class="login-mark" aria-hidden="true">A</div>
-        <p class="admin-wordmark">Avantika Group</p>
-        <h2 id="login-heading">A private guest book.</h2>
-        <p class="login-copy">Sign in to see every welcome, across every room.</p>
-        <form id="login-form" class="login-form">
-          <div class="field-group">
-            <label for="admin-password">Password</label>
-            <input id="admin-password" name="password" type="password" autocomplete="current-password" required>
-          </div>
-          <button class="primary-action liquid-button" type="submit">Open the guest book</button>
-          <p id="login-error" class="field-error centered" role="alert"></p>
-        </form>
-        <a class="back-link" href="/">Back to guest check-in</a>
+        <div class="login-card">
+          <div class="login-crest" aria-hidden="true">AH</div>
+          <p class="admin-wordmark">Avantika Hospitality Collection</p>
+          <h2 id="login-heading">Concierge Portal</h2>
+          <p class="login-copy">Enter credentials to access private guest ledgers and cross-outlet synchronizations.</p>
+          <form id="login-form" class="login-form" novalidate>
+            <div class="field-group">
+              <label for="admin-username">Username</label>
+              <input id="admin-username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Company username" required>
+            </div>
+            <div class="field-group">
+              <label for="admin-password">Password</label>
+              <input id="admin-password" name="password" type="password" autocomplete="current-password" placeholder="••••••••••••" required>
+            </div>
+            <button class="primary-action liquid-button" type="submit">
+              <span>Open Guest Ledger</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </button>
+            <p id="login-error" class="field-error centered" role="alert"></p>
+          </form>
+          <a class="back-link" href="/">
+            <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14"><path d="m15 18-6-6 6-6"/></svg>
+            <span>Return to Guest Check-In</span>
+          </a>
+        </div>
       </section>
 
+      <!-- DASHBOARD VIEW -->
       <section id="dashboard-view" class="dashboard-view" hidden aria-labelledby="guest-book-heading">
+        <!-- Top Executive Navbar -->
         <header class="admin-header">
-          <a class="admin-brand" href="/" aria-label="Avantika Group guest check-in">
-            <span aria-hidden="true">A</span>
-            <strong>Avantika Group</strong>
-          </a>
-          <button id="sign-out" class="text-button" type="button">Sign out</button>
+          <div class="admin-header-brand">
+            <a class="admin-brand" href="/" aria-label="Avantika Hospitality Collection">
+              <span class="admin-brand-monogram" aria-hidden="true">AH</span>
+              <div class="admin-brand-text">
+                <strong>Avantika Hospitality</strong>
+                <small>Guest Ledger &amp; Concierge</small>
+              </div>
+            </a>
+          </div>
+
+          <div class="admin-header-actions">
+            <div class="live-pill" title="Live concierge engine active">
+              <span class="live-dot" aria-hidden="true"></span>
+              <span class="live-text">Live Ledger</span>
+            </div>
+            <a class="header-action-btn" href="/" title="Open Guest Facing Check-in Screen">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>
+              <span class="btn-text">Guest Screen</span>
+            </a>
+            <button id="sign-out" class="header-action-btn header-action-btn--logout" type="button" title="Sign out of concierge portal">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+              <span class="btn-text">Sign Out</span>
+            </button>
+          </div>
         </header>
 
-        <div class="ledger-shell">
-          <div class="ledger-title-row">
-            <div>
-              <p class="ledger-kicker">Every room. One view.</p>
+        <div class="ledger-container">
+          <!-- Page Header & Title Row -->
+          <div class="ledger-intro">
+            <div class="ledger-intro-main">
+              <p class="ledger-kicker">Five Destinations · One Unified Ledger</p>
               <h1 id="guest-book-heading">Guest book</h1>
             </div>
-            <div class="guest-total" aria-live="polite">
-              <strong id="total-count">—</strong>
-              <span>Total guests</span>
+            <div class="ledger-intro-time" id="live-time-display">
+              <span id="live-date">Today</span>
             </div>
           </div>
 
-          <div class="ledger-toolbar">
-            <div class="filter-control glass-control">
-              <label for="outlet-filter">Outlet</label>
-              <select id="outlet-filter">
-                <option value="">All outlets</option>
-                <option>Kampai</option>
-                <option>Basque</option>
-                <option>Embassy — Connaught Place</option>
-                <option>Embassy — Elan Epic</option>
-                <option>Embassy — Vasant Kunj</option>
-              </select>
+          <!-- Executive Bento Grid -->
+          <div class="bento-grid">
+            <!-- Total Guests Metric -->
+            <div class="bento-card bento-card--metric">
+              <div class="bento-card-top">
+                <span class="bento-label">Total Registered Guests</span>
+                <span class="bento-icon-badge" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                </span>
+              </div>
+              <div class="bento-metric-val">
+                <strong id="total-count">—</strong>
+              </div>
+              <p class="bento-subtext">Across Kampai, Basque &amp; Embassy</p>
             </div>
-            <div class="toolbar-actions">
-              <button id="sheets-sync-btn" class="sync-button secondary-action" type="button" title="Sync leads to Google Sheets">
-                <svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-2h2v2zm0-4H7v-2h2v2zm0-4H7V7h2v2zm4 8h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V7h2v2zm4 8h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V7h2v2z"/></svg>
-                <span>Google Sheets Sync</span>
-              </button>
-              <a id="export-link" class="export-button liquid-button" href="/api/admin/export" download>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 19h14"/></svg>
-                Download guest list
+
+            <!-- Google Sheets Integration Card -->
+            <div class="bento-card bento-card--sync">
+              <div class="bento-card-top">
+                <div class="sync-status-indicator">
+                  <span class="status-pulse-dot" aria-hidden="true"></span>
+                  <span class="bento-label">Google Sheets API v4</span>
+                </div>
+                <a id="sheet-link" class="sheet-link" href="https://docs.google.com/spreadsheets/d/1VzvRbUF9guy-aAYgF_0GqNt4Pb-EmzpUThEUiCAFmyY/edit" target="_blank" rel="noopener noreferrer" title="Open Google Spreadsheet">
+                  <span>Open Sheet</span>
+                  <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3"/></svg>
+                </a>
+              </div>
+              <p class="bento-sync-desc">Auto-syncing all walk-ins in real time to your cloud spreadsheet.</p>
+              <div class="bento-sync-action">
+                <button id="sheets-sync-btn" class="sync-now-button" type="button">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+                  <span>Sync to Google Sheets</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Outlets Overview Card -->
+            <div class="bento-card bento-card--portfolio">
+              <div class="bento-card-top">
+                <span class="bento-label">Active Venues</span>
+                <span class="bento-icon-badge" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l8-4v18M13 11l6-3v13"/></svg>
+                </span>
+              </div>
+              <div class="venue-pill-list">
+                <span class="venue-mini-chip chip-kampai">Kampai</span>
+                <span class="venue-mini-chip chip-basque">Basque</span>
+                <span class="venue-mini-chip chip-embassy">Embassy CP</span>
+                <span class="venue-mini-chip chip-embassy">Embassy Elan</span>
+                <span class="venue-mini-chip chip-embassy">Embassy VK</span>
+              </div>
+              <p class="bento-subtext">5 fine dining locations active</p>
+            </div>
+          </div>
+
+          <!-- Controls, Search & Filter Bar -->
+          <div class="controls-panel">
+            <div class="filter-pills-scroll" role="tablist" aria-label="Filter by restaurant outlet">
+              <button class="filter-pill is-active" data-outlet="" type="button" role="tab">All Outlets</button>
+              <button class="filter-pill" data-outlet="Kampai" type="button" role="tab">Kampai (Aerocity)</button>
+              <button class="filter-pill" data-outlet="Basque" type="button" role="tab">Basque (Dehradun)</button>
+              <button class="filter-pill" data-outlet="Embassy — Connaught Place" type="button" role="tab">The Embassy (CP)</button>
+              <button class="filter-pill" data-outlet="Embassy — Elan Epic" type="button" role="tab">The Embassy (Elan)</button>
+              <button class="filter-pill" data-outlet="Embassy — Vasant Kunj" type="button" role="tab">The Embassy (VK)</button>
+            </div>
+
+            <!-- Accessible select for screen readers and script synchronization -->
+            <label for="outlet-filter" class="sr-only">Outlet</label>
+            <select id="outlet-filter" class="sr-only" aria-label="Selected outlet filter">
+              <option value="">All outlets</option>
+              <option value="Kampai">Kampai</option>
+              <option value="Basque">Basque</option>
+              <option value="Embassy — Connaught Place">Embassy — Connaught Place</option>
+              <option value="Embassy — Elan Epic">Embassy — Elan Epic</option>
+              <option value="Embassy — Vasant Kunj">Embassy — Vasant Kunj</option>
+            </select>
+
+            <div class="controls-secondary">
+              <!-- Search Box -->
+              <div class="search-input-shell">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                <input id="guest-search" type="search" placeholder="Search by name or number…" aria-label="Search guest ledger">
+              </div>
+
+              <!-- Export CSV Button -->
+              <a id="export-link" class="export-btn" href="/api/admin/export" download title="Download guest list">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                <span>Download guest list</span>
               </a>
             </div>
           </div>
 
-          <p id="ledger-status" class="ledger-status" role="status" aria-live="polite"></p>
-          <div class="table-wrap">
-            <table>
+          <!-- Status / Feedback Toast -->
+          <div id="ledger-status-toast" class="status-toast" role="status" aria-live="polite" hidden>
+            <span id="ledger-status-text"></span>
+          </div>
+
+          <!-- Responsive Ledger Views -->
+          <!-- Desktop Table (>= 768px) -->
+          <div class="table-container desktop-only">
+            <table class="luxury-table">
               <thead>
                 <tr>
                   <th scope="col">Guest</th>
                   <th scope="col">Mobile</th>
                   <th scope="col">Outlet</th>
+                  <th scope="col">Guests</th>
+                  <th scope="col">Visit date</th>
                   <th scope="col">Arrived</th>
                 </tr>
               </thead>
               <tbody id="lead-rows"></tbody>
             </table>
           </div>
+
+          <!-- Mobile Cards Container (< 768px) -->
+          <div id="lead-cards" class="mobile-cards-grid mobile-only" aria-label="Guest cards"></div>
         </div>
       </section>
     </main>
