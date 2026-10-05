@@ -51,11 +51,11 @@ test('captures a lead and rejects invalid or oversized input', async () => {
   try {
     const saved = await request(`${app.baseUrl}/api/leads`, {
       method: 'POST',
-      json: { name: 'Aditi Sharma', mobile: '+91 98765 43210', outlet: 'Basque', pax: 4, visit_date: '2026-10-01' },
+      json: { name: 'Aditi Sharma', mobile: '+91 98765 43210', outlet: 'Basque', pax: 4, visit_date: '2026-10-01', table_number: '12', lead_source: 'District' },
     });
     assert.equal(saved.status, 201);
     assert.deepEqual(await saved.json(), {
-      lead: { id: 1, name: 'Aditi Sharma', mobile: '9876543210', outlet: 'Basque', pax: 4, visit_date: '2026-10-01' },
+      lead: { id: 1, name: 'Aditi Sharma', mobile: '9876543210', outlet: 'Basque', pax: 4, visit_date: '2026-10-01', table_number: '12', lead_source: 'District' },
     });
 
     const invalid = await request(`${app.baseUrl}/api/leads`, {
@@ -88,8 +88,8 @@ test('protects admin listing and filtered CSV export with a signed session', asy
   const app = await startTestApp();
   try {
     for (const lead of [
-      { name: '=HYPERLINK("bad")', mobile: '9876543210', outlet: 'Kampai', pax: 2, visit_date: '2026-10-01' },
-      { name: 'Neha Bansal', mobile: '9987654321', outlet: 'Basque', pax: 5, visit_date: '2026-10-02' },
+      { name: '=HYPERLINK("bad")', mobile: '9876543210', outlet: 'Kampai', pax: 2, visit_date: '2026-10-01', table_number: '1', lead_source: 'Walk-in' },
+      { name: 'Neha Bansal', mobile: '9987654321', outlet: 'Basque', pax: 5, visit_date: '2026-10-02', table_number: '7', lead_source: 'Custom', custom_source: 'Hotel concierge' },
     ]) {
       assert.equal((await request(`${app.baseUrl}/api/leads`, { method: 'POST', json: lead })).status, 201);
     }
@@ -130,7 +130,7 @@ test('protects admin listing and filtered CSV export with a signed session', asy
     assert.equal(exported.status, 200);
     assert.match(exported.headers.get('content-type'), /text\/csv/);
     assert.match(await exported.text(), /"'=HYPERLINK\(""bad""\)"/);
-    assert.match(await (await fetch(`${app.baseUrl}/api/admin/export`, { headers: { cookie } })).text(), /Name,Mobile,Outlet,Guests,Visit date,Created/);
+    assert.match(await (await fetch(`${app.baseUrl}/api/admin/export`, { headers: { cookie } })).text(), /Name,Mobile,Outlet,Guests,Visit date,Table,Source,Created/);
 
     const logout = await fetch(`${app.baseUrl}/api/admin/logout`, {
       method: 'POST',
@@ -147,9 +147,9 @@ test('limits company logins to their own restaurant leads and exports', async ()
   const app = await startTestApp();
   try {
     for (const lead of [
-      { name: 'Kampai Guest', mobile: '9876543210', outlet: 'Kampai', pax: 2, visit_date: '2026-10-01' },
-      { name: 'Basque Guest', mobile: '9987654321', outlet: 'Basque', pax: 3, visit_date: '2026-10-01' },
-      { name: 'Embassy Guest', mobile: '9765432109', outlet: 'Embassy — Elan Epic', pax: 4, visit_date: '2026-10-01' },
+      { name: 'Kampai Guest', mobile: '9876543210', outlet: 'Kampai', pax: 2, visit_date: '2026-10-01', table_number: '1', lead_source: 'Walk-in' },
+      { name: 'Basque Guest', mobile: '9987654321', outlet: 'Basque', pax: 3, visit_date: '2026-10-01', table_number: '2', lead_source: 'District' },
+      { name: 'Embassy Guest', mobile: '9765432109', outlet: 'Embassy — Elan Epic', pax: 4, visit_date: '2026-10-01', table_number: '3', lead_source: 'EazyDiner' },
     ]) assert.equal((await request(`${app.baseUrl}/api/leads`, { method: 'POST', json: lead })).status, 201);
 
     const login = await request(`${app.baseUrl}/api/admin/login`, {
@@ -172,6 +172,8 @@ test('limits company logins to their own restaurant leads and exports', async ()
         outlet: 'Kampai',
         pax: 2,
         visit_date: '2026-10-01',
+        table_number: '1',
+        lead_source: 'Walk-in',
     }]);
     assert.match(body.leads[0].created_at, /^2026-|^20\d\d-/);
     assert.equal((await fetch(`${app.baseUrl}/api/admin/leads?outlet=${encodeURIComponent('Basque')}`, { headers: { cookie } })).status, 403);
@@ -204,6 +206,10 @@ test('serves the installable guest shell and its local GSAP runtime', async () =
     assert.match(html, /<label[^>]*for="guest-mobile"[^>]*>Mobile number<\/label>/);
     assert.match(html, /<label[^>]*for="guest-pax"[^>]*>Number of guests<\/label>/);
     assert.match(html, /<label[^>]*for="visit-date"[^>]*>Date of visit<\/label>/);
+    assert.match(html, /<label[^>]*for="table-number"[^>]*>Table number<\/label>/);
+    assert.match(html, /<label[^>]*for="lead-source"[^>]*>Booking source<\/label>/);
+    for (const source of ['Walk-in', 'District', 'EazyDiner', 'Dineout', 'Custom']) assert.match(html, new RegExp(`<option[^>]*value="${source}"`));
+    assert.match(html, /id="custom-source"/);
     assert.match(html, /Join Kampai’s guest list/);
     assert.match(html, /manifest\.webmanifest/);
     for (const outlet of ['Kampai', 'Basque', 'Embassy — Connaught Place', 'Embassy — Elan Epic', 'Embassy — Vasant Kunj']) {
@@ -274,7 +280,7 @@ test('serves the protected guest-book shell with accessible controls', async () 
     assert.match(html, /<label[^>]*for="admin-password"[^>]*>Password<\/label>/);
     assert.match(html, /<h1[^>]*>Guest book<\/h1>/);
     assert.match(html, /<label[^>]*for="outlet-filter"[^>]*>Outlet<\/label>/);
-    for (const heading of ['Guest', 'Mobile', 'Outlet', 'Guests', 'Visit date', 'Arrived']) assert.match(html, new RegExp(`<th[^>]*>${heading}</th>`));
+    for (const heading of ['Guest', 'Mobile', 'Outlet', 'Guests', 'Visit date', 'Table', 'Source', 'Arrived']) assert.match(html, new RegExp(`<th[^>]*>${heading}</th>`));
     assert.match(html, /Download guest list/);
     assert.match(html, /Sign out/);
     const adminScriptResponse = await fetch(`${app.baseUrl}/admin.js`);

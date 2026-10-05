@@ -4,6 +4,10 @@ const nameInput = document.querySelector('#guest-name');
 const mobileInput = document.querySelector('#guest-mobile');
 const paxInput = document.querySelector('#guest-pax');
 const visitDateInput = document.querySelector('#visit-date');
+const tableNumberInput = document.querySelector('#table-number');
+const leadSourceSelect = document.querySelector('#lead-source');
+const customSourceGroup = document.querySelector('#custom-source-group');
+const customSourceInput = document.querySelector('#custom-source');
 const submitButton = form.querySelector('button[type="submit"]');
 const outletSelect = document.querySelector('#outlet-select');
 const checkInView = document.querySelector('#check-in-view');
@@ -139,23 +143,41 @@ function setError(input, message) {
   input.setAttribute('aria-invalid', message ? 'true' : 'false');
 }
 
+function updateCustomSource() {
+  const isCustom = leadSourceSelect.value === 'Custom';
+  customSourceGroup.hidden = !isCustom;
+  customSourceInput.required = isCustom;
+  if (!isCustom) {
+    customSourceInput.value = '';
+    setError(customSourceInput, '');
+  }
+}
+
 function validate({ showErrors = false } = {}) {
   const nameValid = nameInput.value.trim().replace(/\s+/g, ' ').length >= 2;
   const mobileValid = /^[6-9]\d{9}$/.test(mobileDigits());
   const pax = Number(paxInput.value);
   const paxValid = Number.isInteger(pax) && pax >= 1 && pax <= 50;
   const visitDateValid = /^\d{4}-\d{2}-\d{2}$/.test(visitDateInput.value);
+  const tableNumberValid = tableNumberInput.value.trim().length >= 1 && tableNumberInput.value.trim().length <= 20;
+  const sourceValid = ['Walk-in', 'District', 'EazyDiner', 'Dineout', 'Custom'].includes(leadSourceSelect.value);
+  const customSourceValid = leadSourceSelect.value !== 'Custom'
+    || (customSourceInput.value.trim().length >= 2 && customSourceInput.value.trim().length <= 50);
   if (showErrors) {
     setError(nameInput, nameValid ? '' : 'Please enter your name.');
     setError(mobileInput, mobileValid ? '' : 'Enter a valid 10-digit mobile number.');
     setError(paxInput, paxValid ? '' : 'Enter 1 to 50 guests.');
     setError(visitDateInput, visitDateValid ? '' : 'Choose a visit date.');
+    setError(tableNumberInput, tableNumberValid ? '' : 'Enter a table number.');
+    setError(leadSourceSelect, sourceValid ? '' : 'Choose a booking source.');
+    setError(customSourceInput, customSourceValid ? '' : 'Enter the custom booking source.');
   }
-  submitButton.disabled = !(nameValid && mobileValid && paxValid && visitDateValid);
-  return nameValid && mobileValid && paxValid && visitDateValid;
+  const valid = nameValid && mobileValid && paxValid && visitDateValid && tableNumberValid && sourceValid && customSourceValid;
+  submitButton.disabled = !valid;
+  return valid;
 }
 
-for (const input of [nameInput, mobileInput, paxInput, visitDateInput]) {
+for (const input of [nameInput, mobileInput, paxInput, visitDateInput, tableNumberInput, customSourceInput]) {
   input.addEventListener('input', () => {
     setError(input, '');
     status.textContent = '';
@@ -163,6 +185,14 @@ for (const input of [nameInput, mobileInput, paxInput, visitDateInput]) {
   });
   input.addEventListener('blur', () => validate({ showErrors: true }));
 }
+
+leadSourceSelect.addEventListener('change', () => {
+  updateCustomSource();
+  setError(leadSourceSelect, '');
+  validate();
+});
+leadSourceSelect.addEventListener('blur', () => validate({ showErrors: true }));
+updateCustomSource();
 
 outletSelect.addEventListener('change', () => setTheme(outletSelect.value));
 renderTheme(outletSelect.value);
@@ -186,6 +216,9 @@ form.addEventListener('submit', async (event) => {
         outlet: selectedOutlet,
         pax: paxInput.value,
         visit_date: visitDateInput.value,
+        table_number: tableNumberInput.value,
+        lead_source: leadSourceSelect.value,
+        custom_source: customSourceInput.value,
       }),
     });
     const payload = await response.json();
@@ -194,6 +227,9 @@ form.addEventListener('submit', async (event) => {
       if (payload.field === 'mobile') setError(mobileInput, payload.error);
       if (payload.field === 'pax') setError(paxInput, payload.error);
       if (payload.field === 'visit_date') setError(visitDateInput, payload.error);
+      if (payload.field === 'table_number') setError(tableNumberInput, payload.error);
+      if (payload.field === 'lead_source') setError(leadSourceSelect, payload.error);
+      if (payload.field === 'custom_source') setError(customSourceInput, payload.error);
       throw new Error(payload.error);
     }
 
@@ -231,6 +267,10 @@ document.querySelector('#next-guest').addEventListener('click', () => {
   mobileInput.value = '';
   paxInput.value = '';
   visitDateInput.value = today();
+  tableNumberInput.value = '';
+  leadSourceSelect.value = 'Walk-in';
+  customSourceInput.value = '';
+  updateCustomSource();
   checkInView.hidden = false;
   successView.hidden = true;
   gsap.set([checkInView, successView], { clearProps: 'all' });

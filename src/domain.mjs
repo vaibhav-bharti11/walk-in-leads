@@ -11,6 +11,8 @@ export const OUTLETS = Object.freeze([
   'Embassy — Vasant Kunj',
 ]);
 
+export const LEAD_SOURCES = Object.freeze(['Walk-in', 'District', 'EazyDiner', 'Dineout', 'Custom']);
+
 class LeadValidationError extends Error {
   constructor(field, message) {
     super(message);
@@ -50,7 +52,23 @@ export function normalizeLead(input = {}) {
     throw new LeadValidationError('visit_date', 'Choose a valid visit date.');
   }
 
-  return { name, mobile, outlet: input.outlet, pax, visit_date: visitDate };
+  const tableNumber = typeof input.table_number === 'string' ? input.table_number.trim().replace(/\s+/g, ' ') : '';
+  if (tableNumber.length < 1 || tableNumber.length > 20) {
+    throw new LeadValidationError('table_number', 'Enter a table number.');
+  }
+
+  if (!LEAD_SOURCES.includes(input.lead_source)) {
+    throw new LeadValidationError('lead_source', 'Choose a booking source.');
+  }
+  let leadSource = input.lead_source;
+  if (leadSource === 'Custom') {
+    leadSource = typeof input.custom_source === 'string' ? input.custom_source.trim().replace(/\s+/g, ' ') : '';
+    if (leadSource.length < 2 || leadSource.length > 50) {
+      throw new LeadValidationError('custom_source', 'Enter the custom booking source.');
+    }
+  }
+
+  return { name, mobile, outlet: input.outlet, pax, visit_date: visitDate, table_number: tableNumber, lead_source: leadSource };
 }
 
 export function escapeCsvCell(value) {
@@ -82,17 +100,19 @@ export function createLeadStore(filename) {
   const columns = new Set(database.prepare('PRAGMA table_info(leads)').all().map(({ name }) => name));
   if (!columns.has('pax')) database.exec('ALTER TABLE leads ADD COLUMN pax INTEGER');
   if (!columns.has('visit_date')) database.exec('ALTER TABLE leads ADD COLUMN visit_date TEXT');
+  if (!columns.has('table_number')) database.exec('ALTER TABLE leads ADD COLUMN table_number TEXT');
+  if (!columns.has('lead_source')) database.exec('ALTER TABLE leads ADD COLUMN lead_source TEXT');
 
-  const insert = database.prepare('INSERT INTO leads (name, mobile, outlet, pax, visit_date) VALUES (?, ?, ?, ?, ?)');
-  const listAll = database.prepare('SELECT id, name, mobile, outlet, pax, visit_date, created_at FROM leads ORDER BY id DESC');
-  const listOutlet = database.prepare('SELECT id, name, mobile, outlet, pax, visit_date, created_at FROM leads WHERE outlet = ? ORDER BY id DESC');
+  const insert = database.prepare('INSERT INTO leads (name, mobile, outlet, pax, visit_date, table_number, lead_source) VALUES (?, ?, ?, ?, ?, ?, ?)');
+  const listAll = database.prepare('SELECT id, name, mobile, outlet, pax, visit_date, table_number, lead_source, created_at FROM leads ORDER BY id DESC');
+  const listOutlet = database.prepare('SELECT id, name, mobile, outlet, pax, visit_date, table_number, lead_source, created_at FROM leads WHERE outlet = ? ORDER BY id DESC');
   const countAll = database.prepare('SELECT COUNT(*) AS total FROM leads');
   const countOutlet = database.prepare('SELECT COUNT(*) AS total FROM leads WHERE outlet = ?');
 
   return {
     add(input) {
       const lead = normalizeLead(input);
-      const result = insert.run(lead.name, lead.mobile, lead.outlet, lead.pax, lead.visit_date);
+      const result = insert.run(lead.name, lead.mobile, lead.outlet, lead.pax, lead.visit_date, lead.table_number, lead.lead_source);
       return { id: Number(result.lastInsertRowid), ...lead };
     },
     list({ outlet } = {}) {
@@ -119,10 +139,12 @@ export async function createPostgresLeadStore(connectionString, PoolClass = Pool
       outlet TEXT NOT NULL,
       pax INTEGER,
       visit_date DATE,
+      table_number TEXT,
+      lead_source TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
-  await pool.query('ALTER TABLE leads ADD COLUMN IF NOT EXISTS pax INTEGER; ALTER TABLE leads ADD COLUMN IF NOT EXISTS visit_date DATE;');
+  await pool.query('ALTER TABLE leads ADD COLUMN IF NOT EXISTS pax INTEGER; ALTER TABLE leads ADD COLUMN IF NOT EXISTS visit_date DATE; ALTER TABLE leads ADD COLUMN IF NOT EXISTS table_number TEXT; ALTER TABLE leads ADD COLUMN IF NOT EXISTS lead_source TEXT;');
 
   function dateOnly(value) {
     if (!(value instanceof Date)) return value;
@@ -145,16 +167,16 @@ export async function createPostgresLeadStore(connectionString, PoolClass = Pool
     async add(input) {
       const lead = normalizeLead(input);
       const { rows } = await pool.query(
-        'INSERT INTO leads (name, mobile, outlet, pax, visit_date) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-        [lead.name, lead.mobile, lead.outlet, lead.pax, lead.visit_date],
+        'INSERT INTO leads (name, mobile, outlet, pax, visit_date, table_number, lead_source) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
+        [lead.name, lead.mobile, lead.outlet, lead.pax, lead.visit_date, lead.table_number, lead.lead_source],
       );
       return { id: Number(rows[0].id), ...lead };
     },
     async list({ outlet } = {}) {
       checkedOutlet(outlet);
       const { rows } = outlet
-        ? await pool.query('SELECT id, name, mobile, outlet, pax, visit_date, created_at FROM leads WHERE outlet = $1 ORDER BY id DESC', [outlet])
-        : await pool.query('SELECT id, name, mobile, outlet, pax, visit_date, created_at FROM leads ORDER BY id DESC');
+        ? await pool.query('SELECT id, name, mobile, outlet, pax, visit_date, table_number, lead_source, created_at FROM leads WHERE outlet = $1 ORDER BY id DESC', [outlet])
+        : await pool.query('SELECT id, name, mobile, outlet, pax, visit_date, table_number, lead_source, created_at FROM leads ORDER BY id DESC');
       return rows.map(leadFromRow);
     },
     async count({ outlet } = {}) {

@@ -136,7 +136,7 @@ function renderAllViews(leads) {
   if (!filtered.length) {
     const row = tableRows.insertRow();
     const cell = row.insertCell();
-    cell.colSpan = 6;
+    cell.colSpan = 8;
     cell.className = 'empty-cell';
     cell.innerHTML = `
       <div class="empty-state-box">
@@ -183,6 +183,8 @@ function renderAllViews(leads) {
         </td>
         <td class="pax-cell">${lead.pax ?? '—'}</td>
         <td class="visit-date-cell"><time datetime="${lead.visit_date || ''}">${formatVisitDate(lead.visit_date)}</time></td>
+        <td class="table-number-cell">${escapeHtml(lead.table_number || '—')}</td>
+        <td class="source-cell">${escapeHtml(lead.lead_source || '—')}</td>
         <td class="time-cell">
           <time datetime="${lead.created_at}">${dateTime.format(new Date(lead.created_at))}</time>
         </td>
@@ -240,7 +242,8 @@ function renderAllViews(leads) {
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
           </a>
         </div>
-        <p class="card-visit-meta">${lead.pax ?? '—'} guests · ${formatVisitDate(lead.visit_date)}</p>
+        <p class="card-visit-meta">${lead.pax ?? '—'} guests · ${formatVisitDate(lead.visit_date)} · Table ${escapeHtml(lead.table_number || '—')}</p>
+        <p class="card-source-meta">Source: ${escapeHtml(lead.lead_source || '—')}</p>
       `;
       mobileCards.appendChild(card);
     }

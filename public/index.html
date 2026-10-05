@@ -13,9 +13,9 @@
     <link rel="preload" as="image" href="/brands/embassy-cp.jpg">
     <link rel="preload" as="image" href="/brands/embassy-elan.jpg">
     <link rel="preload" as="image" href="/brands/embassy-vk.jpg">
-    <link rel="stylesheet" href="/styles.css?v=11">
+    <link rel="stylesheet" href="/styles.css?v=12">
     <script src="/vendor/gsap.min.js" defer></script>
-    <script src="/guest.js?v=11" defer></script>
+    <script src="/guest.js?v=12" defer></script>
   </head>
   <body class="guest-page" data-brand="kampai" data-outlet="Kampai">
     <main class="brand-stage">
@@ -88,6 +88,31 @@
                   <input id="visit-date" name="visit_date" type="date" aria-describedby="visit-date-error" required>
                   <p class="field-error" id="visit-date-error" aria-live="polite"></p>
                 </div>
+              </div>
+
+              <div class="visit-details">
+                <div class="field-group">
+                  <label for="table-number">Table number</label>
+                  <input id="table-number" name="table_number" type="text" maxlength="20" placeholder="12 or T-4" aria-describedby="table-number-error" required>
+                  <p class="field-error" id="table-number-error" aria-live="polite"></p>
+                </div>
+                <div class="field-group">
+                  <label for="lead-source">Booking source</label>
+                  <select id="lead-source" class="field-select" name="lead_source" aria-describedby="lead-source-error" required>
+                    <option value="Walk-in">Walk-in</option>
+                    <option value="District">District</option>
+                    <option value="EazyDiner">EazyDiner</option>
+                    <option value="Dineout">Dineout</option>
+                    <option value="Custom">Custom</option>
+                  </select>
+                  <p class="field-error" id="lead-source-error" aria-live="polite"></p>
+                </div>
+              </div>
+
+              <div id="custom-source-group" class="field-group" hidden>
+                <label for="custom-source">Custom booking source</label>
+                <input id="custom-source" name="custom_source" type="text" maxlength="50" placeholder="Enter booking source" aria-describedby="custom-source-error">
+                <p class="field-error" id="custom-source-error" aria-live="polite"></p>
               </div>
 
               <button class="primary-action liquid-button" type="submit" disabled>

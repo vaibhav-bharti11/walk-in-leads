@@ -3,8 +3,28 @@ import { createSign } from 'node:crypto';
 let cachedToken = null;
 let tokenExpiresAt = 0;
 
+export const SHEET_HEADERS = Object.freeze(['ID', 'Name', 'Mobile', 'Outlet', 'Guests', 'Visit date', 'Timestamp', 'Table', 'Source']);
+export const SHEET_VALUE_INPUT_OPTION = 'RAW';
+
+export function shouldWriteSheetHeaders(firstRow = []) {
+  return firstRow.length === 0 || (firstRow[0] === 'ID' && firstRow[1] === 'Name');
+}
+
 export function leadToSheetRow(item) {
-  return [item.id, item.name, item.mobile, item.outlet, item.pax, item.visit_date, item.created_at || new Date().toISOString()];
+  return [item.id, item.name, item.mobile, item.outlet, item.pax, item.visit_date, item.created_at || new Date().toISOString(), item.table_number, item.lead_source];
+}
+
+function webhookValue(value, forceText = false) {
+  if (typeof value !== 'string' || value.startsWith("'")) return value;
+  return forceText || /^[=+\-@]/.test(value) ? `'${value}` : value;
+}
+
+function leadForWebhook(item) {
+  return Object.fromEntries(Object.entries(item).map(([key, value]) => [key, webhookValue(value, key === 'table_number')]));
+}
+
+export function leadToWebhookRow(item) {
+  return leadToSheetRow(leadForWebhook(item));
 }
 
 /**
@@ -69,10 +89,36 @@ export async function appendToGoogleSheet({
   rows,
 }) {
   const token = await getGoogleServiceAccountToken({ clientEmail, privateKey });
-  const range = `${sheetName}!A:G`;
+  const range = `${sheetName}!A:I`;
+  const headerRange = `${sheetName}!A1:I1`;
+  const headerBaseUrl = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(
+    spreadsheetId
+  )}/values/${encodeURIComponent(headerRange)}`;
+  const headerReadResponse = await fetch(headerBaseUrl, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!headerReadResponse.ok) {
+    const errText = await headerReadResponse.text();
+    throw new Error(`Google Sheets header check failed (${headerReadResponse.status}): ${errText}`);
+  }
+  const headerData = await headerReadResponse.json();
+  if (shouldWriteSheetHeaders(headerData.values?.[0] || [])) {
+    const headerResponse = await fetch(`${headerBaseUrl}?valueInputOption=${SHEET_VALUE_INPUT_OPTION}`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ range: headerRange, majorDimension: 'ROWS', values: [SHEET_HEADERS] }),
+    });
+    if (!headerResponse.ok) {
+      const errText = await headerResponse.text();
+      throw new Error(`Google Sheets header update failed (${headerResponse.status}): ${errText}`);
+    }
+  }
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(
     spreadsheetId
-  )}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
+  )}/values/${encodeURIComponent(range)}:append?valueInputOption=${SHEET_VALUE_INPUT_OPTION}&insertDataOption=INSERT_ROWS`;
 
   const response = await fetch(url, {
     method: 'POST',
@@ -132,13 +178,17 @@ export async function syncLeadToGoogleSheets({
   // 2. If Google Sheet Webhook / Apps Script is configured
   if (googleSheetWebhookUrl) {
     const list = leads || (lead ? [lead] : []);
+    const rows = list.map(leadToWebhookRow);
+    const safeLeads = list.map(leadForWebhook);
     const res = await fetch(googleSheetWebhookUrl, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         action: leads ? 'bulk_sync' : 'append_lead',
-        leads: list,
-        lead: lead || list[0],
+        leads: safeLeads,
+        lead: safeLeads[0],
+        headers: SHEET_HEADERS,
+        rows,
         timestamp: new Date().toISOString(),
       }),
     });

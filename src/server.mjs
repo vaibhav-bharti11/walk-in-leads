@@ -117,8 +117,8 @@ function cookieValue(request, name) {
 
 function csvFor(leads) {
   const rows = [
-    ['Name', 'Mobile', 'Outlet', 'Guests', 'Visit date', 'Created'],
-    ...leads.map((lead) => [lead.name, lead.mobile, lead.outlet, lead.pax, lead.visit_date, lead.created_at]),
+    ['Name', 'Mobile', 'Outlet', 'Guests', 'Visit date', 'Table', 'Source', 'Created'],
+    ...leads.map((lead) => [lead.name, lead.mobile, lead.outlet, lead.pax, lead.visit_date, lead.table_number, lead.lead_source, lead.created_at]),
   ];
   return `\uFEFF${rows.map((row) => row.map(escapeCsvCell).join(',')).join('\r\n')}\r\n`;
 }

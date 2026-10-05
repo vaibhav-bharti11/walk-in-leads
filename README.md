@@ -69,16 +69,22 @@ The app supports two ways to synchronize leads to Google Sheets:
 function doPost(e) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   var data = JSON.parse(e.postData.contents);
-  if (sheet.getLastRow() === 0) {
-    sheet.appendRow(["ID", "Name", "Mobile", "Outlet", "Guests", "Visit date", "Timestamp"]);
+  const headers = data.headers || ["ID", "Name", "Mobile", "Outlet", "Guests", "Visit date", "Timestamp", "Table", "Source"];
+  if (sheet.getLastRow() === 0) sheet.appendRow(headers);
+  else sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+
+  if (data.rows) {
+    data.rows.forEach(row => sheet.appendRow(row));
+    return ContentService.createTextOutput(JSON.stringify({ ok: true }))
+      .setMimeType(ContentService.MimeType.JSON);
   }
   if (data.action === "bulk_sync" && Array.isArray(data.leads)) {
     data.leads.forEach(function(lead) {
-      sheet.appendRow([lead.id, lead.name, lead.mobile, lead.outlet, lead.pax, lead.visit_date, lead.created_at]);
+      sheet.appendRow([lead.id, lead.name, lead.mobile, lead.outlet, lead.pax, lead.visit_date, lead.created_at, lead.table_number, lead.lead_source]);
     });
   } else {
     var lead = data.lead || data;
-    sheet.appendRow([lead.id, lead.name, lead.mobile, lead.outlet, lead.pax, lead.visit_date, lead.created_at || data.timestamp]);
+    sheet.appendRow([lead.id, lead.name, lead.mobile, lead.outlet, lead.pax, lead.visit_date, lead.created_at || data.timestamp, lead.table_number, lead.lead_source]);
   }
   return ContentService.createTextOutput(JSON.stringify({ status: "success" })).setMimeType(ContentService.MimeType.JSON);
 }
