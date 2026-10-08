@@ -40,6 +40,56 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+dialog.customer-match-dialog {
+  position: fixed;
+  margin: auto;
+  max-width: calc(100vw - 32px);
+  max-height: 85dvh;
+  min-height: 0;
+  border-width: 1px;
+  border-radius: 28px;
+  overflow-y: auto;
+  font-family: var(--guest-body);
+}
+.customer-match-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+.customer-match-dialog h2 { font-family: var(--guest-display); font-size: 32px; line-height: 1.1; margin-bottom: 12px; }
+.customer-match-dialog .invitation-copy { margin-bottom: 18px; }
+.customer-match { padding-block: 16px; border-top: 1px solid var(--guest-line); }
+.customer-match h3 { font-size: 16px; }
+.customer-match p, .customer-match li { font-size: 14px; }
+.customer-match ul { padding-left: 20px; margin-block: 12px; }
+.customer-hints { margin-bottom: 12px; font-size: 13px; }
+.customer-hint, .customer-dismiss {
+  display: block;
+  width: 100%;
+  background: var(--guest-field);
+  color: var(--guest-text);
+  border: 1px solid var(--guest-line);
+  border-radius: 12px;
+  padding: 12px;
+  margin-top: 8px;
+  cursor: pointer;
+  text-align: left;
+}
+.customer-dismiss { text-align: center; }
+.customer-report { margin-bottom: 20px; }
+.customer-report > summary, .customer-report-entry > summary { cursor: pointer; }
+.customer-report > summary { min-height: 24px; }
+.customer-report[open] > summary { margin-bottom: 16px; }
+.customer-report-filter {
+  color-scheme: dark;
+  color: var(--ink-light);
+  background: var(--card-dark);
+  border: 1px solid var(--line-light);
+  border-radius: 12px;
+  padding: 12px;
+  max-width: 100%;
+}
+.customer-report-entry { padding-block: 14px; border-bottom: 1px solid var(--line-light); font-size: 14px; overflow-wrap: anywhere; }
+.customer-report-entry ul { margin-top: 12px; padding-left: 20px; }
+.customer-report-entry li { padding-block: 4px; color: var(--ink-light); }
+.customer-hint:focus-visible, .customer-dismiss:focus-visible, .customer-report summary:focus-visible, .customer-report-filter:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+
 html, body {
   min-height: 100%;
   font-family: var(--font-sans);

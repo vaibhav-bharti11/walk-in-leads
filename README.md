@@ -98,6 +98,24 @@ Local development uses SQLite at `DATABASE_PATH`. Production automatically
 uses Postgres when `DATABASE_URL` is present; Antideploy supplies that variable
 and creates the `leads` table when the app starts.
 
-The app intentionally stores only name, normalized mobile number, outlet, party size,
-visit date, and arrival time. Retention tracking, average spend, and visit frequency are not
-part of this release.
+Each submission stores a separate visit with name, normalized mobile number, outlet,
+party size, visit date, table number, booking source, and arrival time.
+
+## Returning customers
+
+The check-in form searches previous entries across all outlets after entering a name
+(at least three characters) or a complete mobile number. Public name suggestions show
+masked numbers; enter the full mobile number to see previous outlet/date/party-size
+details and autofill the name and number. Signed-in staff can search by name across
+all outlets. Confirm the current party size, source, and table before saving a new visit.
+
+Open **Customer visits & repeat guests** in the admin ledger to see unique customers,
+exactly two visits, two or more visits, and visits across multiple outlets. Expand a
+customer to view every visit. Choose **Exact visit count** and enter any positive
+whole number (for example, 5) to see the matching customers and total count. The
+existing search box also filters this report by name or mobile number.
+Mobile numbers identify customers; matching names do
+not merge records. Outlet filters select customers who visited that outlet while counts
+include all visits accessible to the signed-in admin. The group admin sees every outlet;
+company admin reports remain limited to their own outlets. Customer lookup is shared
+across outlets for all signed-in staff.

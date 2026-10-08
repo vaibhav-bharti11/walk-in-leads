@@ -94,6 +94,27 @@ test('escapes CSV formulas and quotes', () => {
   assert.equal(escapeCsvCell('Kampai'), 'Kampai');
 });
 
+test('customer history uses visit dates, counts three visits and treats search wildcards literally', () => {
+  const store = createLeadStore(':memory:');
+  try {
+    const add = (name, mobile, outlet, visit_date) => store.add({ name, mobile, outlet, visit_date, pax: 2, table_number: '4', lead_source: 'Walk-in' });
+    add('Aditi Sharma', '9876543210', 'Basque', '2026-10-08');
+    add('Aditi Sharma', '9876543210', 'Kampai', '2026-10-07');
+    add('Aditi Sharma', '9876543210', 'Basque', '2026-10-01');
+    add('Aditi Sharma', '9987654321', 'Basque', '2026-10-02');
+    assert.deepEqual(store.matchCustomers({ name: 'Adi%' }), []);
+    assert.deepEqual(store.matchCustomers({ name: 'Adi_' }), []);
+    const customer = store.matchCustomers({ mobile: '+91 98765-43210' })[0];
+    assert.equal(customer.visit_count, 3);
+    assert.deepEqual(customer.outlets, ['Basque', 'Kampai']);
+    assert.deepEqual(customer.visits.map((visit) => visit.visit_date), ['2026-10-08', '2026-10-07', '2026-10-01']);
+    assert.equal(store.matchCustomers({ name: 'aditi', mobile: '1234' }).length, 0);
+    assert.equal(store.matchCustomers({ name: 'aditi' }).length, 2);
+  } finally {
+    store.close();
+  }
+});
+
 test('stores production leads in Postgres', async () => {
   assert.equal(typeof domain.createPostgresLeadStore, 'function');
 

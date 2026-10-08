@@ -7,9 +7,9 @@
     <meta name="robots" content="noindex, nofollow">
     <title>Concierge Ledger | Avantika Hospitality Collection</title>
     <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/styles.css?v=12">
+    <link rel="stylesheet" href="/styles.css?v=13">
     <script src="/vendor/gsap.min.js" defer></script>
-    <script src="/admin.js?v=12" defer></script>
+    <script src="/admin.js?v=13" defer></script>
   </head>
   <body class="admin-page">
     <main>
@@ -178,6 +178,25 @@
           </div>
 
           <!-- Status / Feedback Toast -->
+          <details id="customer-report" class="bento-card customer-report">
+            <summary class="bento-label">Customer visits &amp; repeat guests</summary>
+            <p id="customer-report-summary" class="bento-subtext" aria-live="polite">Open to view customer visit counts.</p>
+            <label for="customer-visit-filter" class="sr-only">Customer visits</label>
+            <select id="customer-visit-filter" class="customer-report-filter">
+              <option value="returning">Two or more visits</option>
+              <option value="twice">Exactly two visits</option>
+              <option value="exact">Exact visit count</option>
+              <option value="chains">Visited multiple outlets</option>
+              <option value="all">All customers</option>
+            </select>
+            <div id="customer-exact-visits-group" hidden>
+              <label for="customer-exact-visits" class="bento-subtext">Number of visits</label>
+              <input id="customer-exact-visits" class="customer-report-filter" type="number" min="1" step="1" inputmode="numeric" placeholder="e.g. 5">
+            </div>
+            <p id="customer-report-result-count" class="bento-subtext" aria-live="polite"></p>
+            <div id="customer-report-rows" class="customer-report-rows"></div>
+          </details>
+
           <div id="ledger-status-toast" class="status-toast" role="status" aria-live="polite" hidden>
             <span id="ledger-status-text"></span>
           </div>

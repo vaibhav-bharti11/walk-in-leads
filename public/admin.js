@@ -19,6 +19,87 @@ const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').match
 let allCurrentLeads = [];
 let dashboardRevealed = false;
 let toastTimeout = null;
+let customerReportData = [];
+let customerReportVersion = 0;
+const customerReport = document.querySelector('#customer-report');
+const customerVisitFilter = document.querySelector('#customer-visit-filter');
+const customerReportRows = document.querySelector('#customer-report-rows');
+const customerExactVisits = document.querySelector('#customer-exact-visits');
+const customerResultCount = document.querySelector('#customer-report-result-count');
+
+function renderCustomerReport() {
+  const query = (guestSearch.value || '').trim().toLowerCase();
+  const mode = customerVisitFilter.value;
+  const exactVisits = Number(customerExactVisits.value);
+  document.querySelector('#customer-exact-visits-group').hidden = mode !== 'exact';
+  if (mode === 'exact' && (!Number.isSafeInteger(exactVisits) || exactVisits < 1)) {
+    customerReportRows.replaceChildren();
+    const message = document.createElement('p');
+    message.className = 'bento-subtext';
+    message.textContent = 'Enter a positive whole number of visits.';
+    customerReportRows.append(message);
+    customerResultCount.textContent = '';
+    return;
+  }
+  const customers = customerReportData.filter((customer) => (
+    (mode === 'all' || (mode === 'twice' && customer.visit_count === 2)
+      || (mode === 'exact' && customer.visit_count === exactVisits)
+      || (mode === 'returning' && customer.visit_count >= 2) || (mode === 'chains' && customer.outlets.length >= 2))
+    && (!query || customer.name.toLowerCase().includes(query) || customer.mobile.includes(query))
+  ));
+  customerResultCount.textContent = `${customers.length} ${customers.length === 1 ? 'customer' : 'customers'} match${customers.length === 1 ? 'es' : ''}${mode === 'exact' ? ` exactly ${exactVisits} visits` : ' this filter'}.`;
+  customerReportRows.replaceChildren();
+  if (!customers.length) {
+    const empty = document.createElement('p');
+    empty.className = 'bento-subtext';
+    empty.textContent = 'No customers match this visit filter.';
+    customerReportRows.append(empty);
+  }
+  for (const customer of customers) {
+    const detail = document.createElement('details');
+    detail.className = 'customer-report-entry';
+    const summary = document.createElement('summary');
+    summary.textContent = `${customer.name} · ${formatMobile(customer.mobile)} · ${customer.visit_count} visits · ${customer.outlets.length} outlets`;
+    const visits = document.createElement('ul');
+    for (const visit of customer.visits) {
+      const item = document.createElement('li');
+      item.textContent = `${visit.outlet} · ${formatVisitDate(visit.visit_date || visit.created_at?.slice(0, 10))} · ${visit.pax ?? 'Unknown'} guests · Table ${visit.table_number || '—'} · ${visit.lead_source || '—'}`;
+      visits.append(item);
+    }
+    detail.append(summary, visits);
+    customerReportRows.append(detail);
+  }
+}
+
+async function loadCustomerReport() {
+  const version = ++customerReportVersion;
+  customerReportData = [];
+  customerReportRows.replaceChildren();
+  customerResultCount.textContent = '';
+  const summary = document.querySelector('#customer-report-summary');
+  summary.textContent = 'Loading customer visits…';
+  const outlet = outletFilter.value;
+  try {
+    const response = await fetch(`/api/admin/customers${outlet ? `?outlet=${encodeURIComponent(outlet)}` : ''}`);
+    if (version !== customerReportVersion) return;
+    if (response.status === 401) return showLogin();
+    const payload = await response.json();
+    if (version !== customerReportVersion) return;
+    if (!response.ok) throw new Error(payload.error);
+    customerReportData = payload.customers;
+    const counts = payload.summary;
+    summary.textContent = `${counts.unique_customers} unique customers · ${counts.exactly_two} visited exactly twice · ${counts.returning} visited two or more times · ${counts.multiple_outlets} visited multiple outlets. Counts cover your accessible outlets${outlet ? ` for customers who visited ${outlet}` : ''}.`;
+    renderCustomerReport();
+  } catch {
+    if (version === customerReportVersion) summary.textContent = 'Could not load customer visits. Close and reopen to retry.';
+  }
+}
+
+customerReport.addEventListener('toggle', () => {
+  if (customerReport.open) loadCustomerReport();
+});
+customerVisitFilter.addEventListener('change', renderCustomerReport);
+customerExactVisits.addEventListener('input', renderCustomerReport);
 
 // Initialize Live Date & Clock
 function updateClock() {
@@ -53,6 +134,10 @@ function showToast(message, isError = false, duration = 4000) {
 }
 
 function showLogin(message = '') {
+  customerReportVersion += 1;
+  customerReportData = [];
+  customerReportRows.replaceChildren();
+  customerReport.open = false;
   dashboardView.hidden = true;
   loginView.hidden = false;
   loginError.textContent = message;
@@ -268,6 +353,7 @@ async function loadLeads() {
     allCurrentLeads = payload.leads || [];
     totalCount.textContent = new Intl.NumberFormat('en-IN').format(payload.total);
     renderAllViews(allCurrentLeads);
+    if (customerReport.open) loadCustomerReport();
   } catch (err) {
     showToast('Failed to load guest ledger. Please retry.', true);
   }
@@ -287,6 +373,7 @@ filterPills.forEach((pill) => {
 if (guestSearch) {
   guestSearch.addEventListener('input', () => {
     renderAllViews(allCurrentLeads);
+    if (customerReport.open) renderCustomerReport();
   });
 }
 

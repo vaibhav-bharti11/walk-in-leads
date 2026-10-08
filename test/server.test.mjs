@@ -46,6 +46,60 @@ async function request(url, options = {}) {
   });
 }
 
+test('matches customers across outlets, protects name-only lookups and reports repeat visits', async () => {
+  const app = await startTestApp();
+  try {
+    for (const [mobile, outlet, date, pax] of [
+      ['9876543210', 'Basque', '2026-10-01', 4],
+      ['9876543210', 'Kampai', '2026-10-08', 2],
+      ['9987654321', 'Basque', '2026-10-03', 3],
+    ]) {
+      assert.equal((await request(`${app.baseUrl}/api/leads`, { method: 'POST', json: {
+        name: 'Aditi Sharma', mobile, outlet, visit_date: date, pax,
+        table_number: '12', lead_source: 'Walk-in',
+      } })).status, 201);
+    }
+    const lookup = async (query, cookie) => {
+      const result = await request(`${app.baseUrl}/api/customers/match`, {
+        method: 'POST', json: query, headers: cookie ? { cookie } : {},
+      });
+      assert.equal(result.status, 200);
+      return (await result.json()).customers;
+    };
+    assert.deepEqual(await lookup({ name: 'Ad' }), []);
+    assert.deepEqual(await lookup({ mobile: '98765' }), []);
+    const hints = await lookup({ name: '  ADITI   sharma ' });
+    assert.equal(hints.length, 2);
+    assert.ok(hints.every((item) => !item.mobile && !item.visits && item.masked_mobile));
+    const matches = await lookup({ mobile: '+91 98765 43210' });
+    assert.equal(matches.length, 1);
+    assert.equal(matches[0].visit_count, 2);
+    assert.deepEqual(matches[0].visits.map((visit) => [visit.outlet, visit.visit_date, visit.pax]), [
+      ['Kampai', '2026-10-08', 2], ['Basque', '2026-10-01', 4],
+    ]);
+    assert.equal((await fetch(`${app.baseUrl}/api/admin/customers`)).status, 401);
+    const signIn = async (username, password) => (await request(`${app.baseUrl}/api/admin/login`, {
+      method: 'POST', json: { username, password },
+    })).headers.get('set-cookie').split(';', 1)[0];
+    const cookie = await signIn('avantika', 'correct horse battery staple');
+    const report = await (await fetch(`${app.baseUrl}/api/admin/customers`, { headers: { cookie } })).json();
+    assert.deepEqual(report.summary, { unique_customers: 2, exactly_two: 1, returning: 1, multiple_outlets: 1 });
+    assert.equal(report.customers[0].visit_count, 2);
+    const companyCookie = await signIn('kampai', 'kampai test password');
+    const staffMatches = await lookup({ name: 'aditi' }, companyCookie);
+    assert.equal(staffMatches[0].visit_count, 2);
+    const companyReport = await (await fetch(`${app.baseUrl}/api/admin/customers`, { headers: { cookie: companyCookie } })).json();
+    assert.equal(companyReport.summary.returning, 0);
+    assert.deepEqual(companyReport.customers[0].visits.map((visit) => visit.outlet), ['Kampai']);
+    assert.equal((await fetch(`${app.baseUrl}/api/admin/customers?outlet=Basque`, { headers: { cookie: companyCookie } })).status, 403);
+    const filtered = await (await fetch(`${app.baseUrl}/api/admin/customers?outlet=Basque`, { headers: { cookie } })).json();
+    assert.equal(filtered.summary.exactly_two, 1);
+    assert.equal(filtered.customers[0].visit_count, 2);
+  } finally {
+    await app.close();
+  }
+});
+
 test('captures a lead and rejects invalid or oversized input', async () => {
   const app = await startTestApp();
   try {

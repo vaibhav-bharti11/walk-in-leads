@@ -13,9 +13,9 @@
     <link rel="preload" as="image" href="/brands/embassy-cp.jpg">
     <link rel="preload" as="image" href="/brands/embassy-elan.jpg">
     <link rel="preload" as="image" href="/brands/embassy-vk.jpg">
-    <link rel="stylesheet" href="/styles.css?v=12">
+    <link rel="stylesheet" href="/styles.css?v=13">
     <script src="/vendor/gsap.min.js" defer></script>
-    <script src="/guest.js?v=12" defer></script>
+    <script src="/guest.js?v=13" defer></script>
   </head>
   <body class="guest-page" data-brand="kampai" data-outlet="Kampai">
     <main class="brand-stage">
@@ -76,6 +76,8 @@
                 </div>
                 <p class="field-error" id="mobile-error" aria-live="polite"></p>
               </div>
+
+              <div id="customer-hints" class="customer-hints" aria-live="polite" hidden></div>
 
               <div class="visit-details">
                 <div class="field-group">
@@ -139,6 +141,14 @@
         </div>
       </section>
     </main>
+
+    <dialog id="customer-match-dialog" class="customer-match-dialog guest-card__content" aria-labelledby="customer-match-title">
+      <p class="welcome-note">Welcome back</p>
+      <h2 id="customer-match-title">Previous visits found</h2>
+      <p class="invitation-copy">Choose a customer to fill their name and number. Confirm today's guests, booking source, and table for this new visit.</p>
+      <div id="customer-matches"></div>
+      <button id="dismiss-customer-match" class="customer-dismiss" type="button">Continue without autofill</button>
+    </dialog>
 
     <a class="staff-portal-link" href="/admin" aria-label="Staff Guest Book" title="Staff Guest Book">
       <svg viewBox="0 0 24 24" aria-hidden="true" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>

@@ -84,6 +84,31 @@ function checkedOutlet(outlet) {
   return outlet;
 }
 
+export function customerGroups(leads) {
+  const groups = new Map();
+  const sorted = [...leads].sort((a, b) => String(b.visit_date || b.created_at?.slice(0, 10) || '').localeCompare(String(a.visit_date || a.created_at?.slice(0, 10) || '')) || b.id - a.id);
+  for (const lead of sorted) {
+    let customer = groups.get(lead.mobile);
+    if (!customer) {
+      customer = { name: lead.name, mobile: lead.mobile, visits: [], outlets: [] };
+      groups.set(lead.mobile, customer);
+    }
+    customer.visits.push(lead);
+    if (!customer.outlets.includes(lead.outlet)) customer.outlets.push(lead.outlet);
+  }
+  return [...groups.values()].map((customer) => ({ ...customer, visit_count: customer.visits.length }));
+}
+
+function customerQuery(input = {}) {
+  let mobile = typeof input.mobile === 'string' ? input.mobile.replace(/\D/g, '') : '';
+  if (mobile.length === 12 && mobile.startsWith('91')) mobile = mobile.slice(2);
+  // A supplied number always takes precedence; never fall back to a name for an incomplete number.
+  if (mobile) return /^[6-9]\d{9}$/.test(mobile) ? { mobile } : null;
+  const name = typeof input.name === 'string' ? input.name.trim().replace(/\s+/g, ' ').toLowerCase() : '';
+  if (name.length < 3 || name.length > 80) return null;
+  return { name: `${name.replace(/[!%_]/g, '!$&')}%` };
+}
+
 export function createLeadStore(filename) {
   const database = new DatabaseSync(filename);
   database.exec(`
@@ -102,6 +127,7 @@ export function createLeadStore(filename) {
   if (!columns.has('visit_date')) database.exec('ALTER TABLE leads ADD COLUMN visit_date TEXT');
   if (!columns.has('table_number')) database.exec('ALTER TABLE leads ADD COLUMN table_number TEXT');
   if (!columns.has('lead_source')) database.exec('ALTER TABLE leads ADD COLUMN lead_source TEXT');
+  database.exec('CREATE INDEX IF NOT EXISTS leads_mobile_idx ON leads (mobile)');
 
   const insert = database.prepare('INSERT INTO leads (name, mobile, outlet, pax, visit_date, table_number, lead_source) VALUES (?, ?, ?, ?, ?, ?, ?)');
   const listAll = database.prepare('SELECT id, name, mobile, outlet, pax, visit_date, table_number, lead_source, created_at FROM leads ORDER BY id DESC');
@@ -110,6 +136,14 @@ export function createLeadStore(filename) {
   const countOutlet = database.prepare('SELECT COUNT(*) AS total FROM leads WHERE outlet = ?');
 
   return {
+    matchCustomers(input) {
+      const query = customerQuery(input);
+      if (!query) return [];
+      const rows = query.mobile
+        ? database.prepare('SELECT * FROM leads WHERE mobile = ?').all(query.mobile)
+        : database.prepare("SELECT * FROM leads WHERE mobile IN (SELECT mobile FROM leads WHERE LOWER(name) LIKE ? ESCAPE '!' GROUP BY mobile ORDER BY MAX(id) DESC LIMIT 8)").all(query.name);
+      return customerGroups(rows);
+    },
     add(input) {
       const lead = normalizeLead(input);
       const result = insert.run(lead.name, lead.mobile, lead.outlet, lead.pax, lead.visit_date, lead.table_number, lead.lead_source);
@@ -145,6 +179,7 @@ export async function createPostgresLeadStore(connectionString, PoolClass = Pool
     );
   `);
   await pool.query('ALTER TABLE leads ADD COLUMN IF NOT EXISTS pax INTEGER; ALTER TABLE leads ADD COLUMN IF NOT EXISTS visit_date DATE; ALTER TABLE leads ADD COLUMN IF NOT EXISTS table_number TEXT; ALTER TABLE leads ADD COLUMN IF NOT EXISTS lead_source TEXT;');
+  await pool.query('CREATE INDEX IF NOT EXISTS leads_mobile_idx ON leads (mobile)');
 
   function dateOnly(value) {
     if (!(value instanceof Date)) return value;
@@ -164,6 +199,14 @@ export async function createPostgresLeadStore(connectionString, PoolClass = Pool
   }
 
   return {
+    async matchCustomers(input) {
+      const query = customerQuery(input);
+      if (!query) return [];
+      const { rows } = query.mobile
+        ? await pool.query('SELECT * FROM leads WHERE mobile = $1', [query.mobile])
+        : await pool.query("SELECT * FROM leads WHERE mobile IN (SELECT mobile FROM leads WHERE LOWER(name) LIKE $1 ESCAPE '!' GROUP BY mobile ORDER BY MAX(id) DESC LIMIT 8)", [query.name]);
+      return customerGroups(rows.map(leadFromRow));
+    },
     async add(input) {
       const lead = normalizeLead(input);
       const { rows } = await pool.query(

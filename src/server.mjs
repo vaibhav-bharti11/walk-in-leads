@@ -5,7 +5,7 @@ import { createServer } from 'node:http';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { OUTLETS, createLeadStore, createPostgresLeadStore, escapeCsvCell } from './domain.mjs';
+import { OUTLETS, createLeadStore, createPostgresLeadStore, escapeCsvCell, customerGroups } from './domain.mjs';
 import { syncLeadToGoogleSheets } from './sheets.mjs';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -177,6 +177,14 @@ export function createApp({
     response.setHeader('x-frame-options', 'DENY');
     if (secureCookies) response.setHeader('strict-transport-security', 'max-age=31536000; includeSubDomains');
     try {
+      if (request.method === 'POST' && url.pathname === '/api/customers/match') {
+        const input = await readJson(request);
+        const customers = await store.matchCustomers(input);
+        const hasMobile = typeof input.mobile === 'string' && /\d/.test(input.mobile);
+        return json(response, 200, { customers: authorized(request) || hasMobile ? customers : customers.map((customer) => ({
+          name: customer.name, masked_mobile: `••••••${customer.mobile.slice(-4)}`,
+        })) });
+      }
       if (request.method === 'POST' && url.pathname === '/api/leads') {
         const lead = await store.add(await readJson(request));
         syncLeadToGoogleSheets({
@@ -221,6 +229,21 @@ export function createApp({
       const session = authorized(request);
       if (url.pathname.startsWith('/api/admin/') && !session) {
         return json(response, 401, { error: 'Admin sign-in required.' });
+      }
+
+      if (request.method === 'GET' && url.pathname === '/api/admin/customers') {
+        const outlet = url.searchParams.get('outlet') || undefined;
+        if (outlet && !(scopeOutlets[session.scope] || []).includes(outlet)) {
+          return json(response, 403, { error: 'This login cannot access that outlet.' });
+        }
+        const customers = customerGroups(await scopedLeads(session))
+          .filter((customer) => !outlet || customer.outlets.includes(outlet));
+        return json(response, 200, { customers, summary: {
+          unique_customers: customers.length,
+          exactly_two: customers.filter((customer) => customer.visit_count === 2).length,
+          returning: customers.filter((customer) => customer.visit_count >= 2).length,
+          multiple_outlets: customers.filter((customer) => customer.outlets.length >= 2).length,
+        } });
       }
 
       if (request.method === 'GET' && url.pathname === '/api/admin/leads') {
