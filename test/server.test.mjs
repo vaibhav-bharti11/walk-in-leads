@@ -138,6 +138,34 @@ test('captures a lead and rejects invalid or oversized input', async () => {
   }
 });
 
+test('blocks same-day group duplicates across outlets but allows solo and later-day visits', async () => {
+  const app = await startTestApp();
+  try {
+    const entry = { name: 'Aditi Sharma', mobile: '9876543210', outlet: 'Basque', pax: 4,
+      visit_date: '2026-10-12', table_number: '12', lead_source: 'Walk-in' };
+    const save = (changes = {}) => request(`${app.baseUrl}/api/leads`, { method: 'POST', json: { ...entry, ...changes } });
+    assert.equal((await save()).status, 201);
+    const duplicate = await save({ name: 'Aditi', mobile: '+91 98765 43210', outlet: 'Kampai', pax: 2 });
+    assert.equal(duplicate.status, 409);
+    assert.deepEqual(await duplicate.json(), {
+      error: 'This number already has a visit on this date. Please register using a different number for more than 1 guest.',
+      field: 'mobile', code: 'same_day_group_duplicate',
+    });
+    assert.equal((await save({ outlet: 'Kampai', pax: 1 })).status, 201);
+    assert.equal((await save({ pax: 1 })).status, 201);
+    assert.equal((await save({ visit_date: '2026-10-13', pax: 5 })).status, 201);
+    const results = await Promise.all([
+      save({ mobile: '9987654321', pax: 2 }),
+      save({ mobile: '+91 99876 54321', outlet: 'Kampai', pax: 3 }),
+    ]);
+    assert.deepEqual(results.map(result => result.status).sort(), [201, 409]);
+    const matched = await request(`${app.baseUrl}/api/customers/match`, { method: 'POST', json: { mobile: '9876543210' } });
+    assert.equal((await matched.json()).customers[0].visit_count, 4);
+  } finally {
+    await app.close();
+  }
+});
+
 test('protects admin listing and filtered CSV export with a signed session', async () => {
   const app = await startTestApp();
   try {

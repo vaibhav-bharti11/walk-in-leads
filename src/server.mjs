@@ -324,6 +324,7 @@ export function createApp({
       const status = error.status || (error.field ? 400 : 500);
       const body = { error: status === 500 ? 'Something went wrong.' : error.message };
       if (error.field) body.field = error.field;
+      if (error.code === 'same_day_group_duplicate') body.code = error.code;
       return json(response, status, body);
     }
   }

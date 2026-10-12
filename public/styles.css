@@ -59,7 +59,7 @@ dialog.customer-match-dialog {
 .customer-match p, .customer-match li { font-size: 14px; }
 .customer-match ul { padding-left: 20px; margin-block: 12px; }
 .customer-hints { margin-bottom: 12px; font-size: 13px; }
-.customer-hint, .customer-dismiss {
+.customer-dismiss {
   display: block;
   width: 100%;
   background: var(--guest-field);
@@ -88,7 +88,17 @@ dialog.customer-match-dialog {
 .customer-report-entry { padding-block: 14px; border-bottom: 1px solid var(--line-light); font-size: 14px; overflow-wrap: anywhere; }
 .customer-report-entry ul { margin-top: 12px; padding-left: 20px; }
 .customer-report-entry li { padding-block: 4px; color: var(--ink-light); }
-.customer-hint:focus-visible, .customer-dismiss:focus-visible, .customer-report summary:focus-visible, .customer-report-filter:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.phone-check:focus-visible, .customer-dismiss:focus-visible, .customer-report summary:focus-visible, .customer-report-filter:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+
+.phone-field .phone-check {
+  width: auto;
+  min-height: 36px;
+  flex-shrink: 0;
+  margin: 4px;
+  padding: 0 14px;
+  border-radius: 10px;
+  box-shadow: none;
+}
 
 html, body {
   min-height: 100%;

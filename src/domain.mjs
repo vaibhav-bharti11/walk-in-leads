@@ -21,6 +21,12 @@ class LeadValidationError extends Error {
   }
 }
 
+function sameDayGroupDuplicate() {
+  return Object.assign(new LeadValidationError('mobile',
+    'This number already has a visit on this date. Please register using a different number for more than 1 guest.'),
+  { status: 409, code: 'same_day_group_duplicate' });
+}
+
 export function normalizeLead(input = {}) {
   const name = typeof input.name === 'string' ? input.name.trim().replace(/\s+/g, ' ') : '';
   if (name.length < 2 || name.length > 80) {
@@ -129,7 +135,12 @@ export function createLeadStore(filename) {
   if (!columns.has('lead_source')) database.exec('ALTER TABLE leads ADD COLUMN lead_source TEXT');
   database.exec('CREATE INDEX IF NOT EXISTS leads_mobile_idx ON leads (mobile)');
 
-  const insert = database.prepare('INSERT INTO leads (name, mobile, outlet, pax, visit_date, table_number, lead_source) VALUES (?, ?, ?, ?, ?, ?, ?)');
+  // One conditional write keeps the check and insert atomic, including across SQLite connections.
+  const insert = database.prepare(`INSERT INTO leads (name, mobile, outlet, pax, visit_date, table_number, lead_source)
+    SELECT ?, ?, ?, ?, ?, ?, ? WHERE ? = 1 OR NOT EXISTS (
+      SELECT 1 FROM leads WHERE mobile = ?
+      AND COALESCE(visit_date, date(created_at, '+5 hours', '+30 minutes')) = ?
+    )`);
   const listAll = database.prepare('SELECT id, name, mobile, outlet, pax, visit_date, table_number, lead_source, created_at FROM leads ORDER BY id DESC');
   const listOutlet = database.prepare('SELECT id, name, mobile, outlet, pax, visit_date, table_number, lead_source, created_at FROM leads WHERE outlet = ? ORDER BY id DESC');
   const countAll = database.prepare('SELECT COUNT(*) AS total FROM leads');
@@ -146,7 +157,9 @@ export function createLeadStore(filename) {
     },
     add(input) {
       const lead = normalizeLead(input);
-      const result = insert.run(lead.name, lead.mobile, lead.outlet, lead.pax, lead.visit_date, lead.table_number, lead.lead_source);
+      const result = insert.run(lead.name, lead.mobile, lead.outlet, lead.pax, lead.visit_date, lead.table_number, lead.lead_source,
+        lead.pax, lead.mobile, lead.visit_date);
+      if (!result.changes) throw sameDayGroupDuplicate();
       return { id: Number(result.lastInsertRowid), ...lead };
     },
     list({ outlet } = {}) {
@@ -209,11 +222,29 @@ export async function createPostgresLeadStore(connectionString, PoolClass = Pool
     },
     async add(input) {
       const lead = normalizeLead(input);
-      const { rows } = await pool.query(
-        'INSERT INTO leads (name, mobile, outlet, pax, visit_date, table_number, lead_source) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
-        [lead.name, lead.mobile, lead.outlet, lead.pax, lead.visit_date, lead.table_number, lead.lead_source],
-      );
-      return { id: Number(rows[0].id), ...lead };
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        // Lock solo visits too: a concurrent group entry must see whichever visit saves first.
+        await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${lead.mobile}:${lead.visit_date}`]);
+        if (lead.pax > 1) {
+          const existing = await client.query(`SELECT 1 FROM leads WHERE mobile = $1
+            AND COALESCE(visit_date, (created_at AT TIME ZONE 'Asia/Kolkata')::date) = $2::date LIMIT 1`,
+          [lead.mobile, lead.visit_date]);
+          if (existing.rows.length) throw sameDayGroupDuplicate();
+        }
+        const { rows } = await client.query(
+          'INSERT INTO leads (name, mobile, outlet, pax, visit_date, table_number, lead_source) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
+          [lead.name, lead.mobile, lead.outlet, lead.pax, lead.visit_date, lead.table_number, lead.lead_source],
+        );
+        await client.query('COMMIT');
+        return { id: Number(rows[0].id), ...lead };
+      } catch (error) {
+        await client.query('ROLLBACK').catch(() => {});
+        throw error;
+      } finally {
+        client.release();
+      }
     },
     async list({ outlet } = {}) {
       checkedOutlet(outlet);

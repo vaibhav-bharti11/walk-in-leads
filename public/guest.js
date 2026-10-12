@@ -2,6 +2,7 @@ const { gsap } = window;
 const form = document.querySelector('#lead-form');
 const nameInput = document.querySelector('#guest-name');
 const mobileInput = document.querySelector('#guest-mobile');
+const customerCheckButton = document.querySelector('#check-customer');
 const paxInput = document.querySelector('#guest-pax');
 const visitDateInput = document.querySelector('#visit-date');
 const tableNumberInput = document.querySelector('#table-number');
@@ -68,11 +69,36 @@ const themes = {
   },
 };
 let reduceMotion = false;
+let checkedCustomer = null;
+let checkInProgress = false;
+let lastDuplicateWarningKey = '';
+const blockedVisitKeys = new Set();
+const duplicateMessage = 'This number already has a visit on this date. Please register using a different number for more than 1 guest.';
+
+function indianDate(value) {
+  const parts = new Intl.DateTimeFormat('en-IN', {
+    timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date(value));
+  const part = (type) => parts.find((item) => item.type === type).value;
+  return `${part('year')}-${part('month')}-${part('day')}`;
+}
 
 function today() {
-  const now = new Date();
-  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-  return now.toISOString().slice(0, 10);
+  return indianDate(new Date());
+}
+
+function visitDay(visit) {
+  return visit.visit_date || (visit.created_at ? indianDate(visit.created_at) : '');
+}
+
+function visitKey() {
+  return `${mobileDigits()}:${visitDateInput.value}`;
+}
+
+function isSameDayGroupDuplicate() {
+  return Number(paxInput.value) > 1 && (blockedVisitKeys.has(visitKey())
+    || (checkedCustomer?.mobile === mobileDigits()
+      && checkedCustomer.visits.some((visit) => visitDay(visit) === visitDateInput.value)));
 }
 
 visitDateInput.value = today();
@@ -165,15 +191,16 @@ function validate({ showErrors = false } = {}) {
     || (customSourceInput.value.trim().length >= 2 && customSourceInput.value.trim().length <= 50);
   if (showErrors) {
     setError(nameInput, nameValid ? '' : 'Please enter your name.');
-    setError(mobileInput, mobileValid ? '' : 'Enter a valid 10-digit mobile number.');
+    setError(mobileInput, !mobileValid ? 'Enter a valid 10-digit mobile number.' : isSameDayGroupDuplicate() ? duplicateMessage : '');
     setError(paxInput, paxValid ? '' : 'Enter 1 to 50 guests.');
     setError(visitDateInput, visitDateValid ? '' : 'Choose a visit date.');
     setError(tableNumberInput, tableNumberValid ? '' : 'Enter a table number.');
     setError(leadSourceSelect, sourceValid ? '' : 'Choose a booking source.');
     setError(customSourceInput, customSourceValid ? '' : 'Enter the custom booking source.');
   }
-  const valid = nameValid && mobileValid && paxValid && visitDateValid && tableNumberValid && sourceValid && customSourceValid;
-  submitButton.disabled = !valid;
+  const valid = nameValid && mobileValid && paxValid && visitDateValid && tableNumberValid && sourceValid && customSourceValid
+    && !isSameDayGroupDuplicate() && !checkInProgress;
+  submitButton.disabled = !valid || submitButton.classList.contains('is-loading');
   return valid;
 }
 
@@ -197,60 +224,76 @@ updateCustomSource();
 const customerDialog = document.querySelector('#customer-match-dialog');
 const customerMatches = document.querySelector('#customer-matches');
 const customerHints = document.querySelector('#customer-hints');
-let lookupTimer;
+const duplicateDialog = document.querySelector('#duplicate-visit-dialog');
 let lookupController;
 let lookupVersion = 0;
-let lastOfferedLookup = '';
 
 function clearCustomerLookup() {
-  clearTimeout(lookupTimer);
   lookupController?.abort();
   lookupVersion += 1;
+  checkInProgress = false;
+  customerCheckButton.disabled = false;
   customerHints.hidden = true;
   customerHints.replaceChildren();
   if (customerDialog.open) customerDialog.close();
+  if (duplicateDialog.open) duplicateDialog.close();
+}
+
+function updateDuplicateWarning() {
+  if (!isSameDayGroupDuplicate()) {
+    lastDuplicateWarningKey = '';
+    if (/^[6-9]\d{9}$/.test(mobileDigits())) setError(mobileInput, '');
+    if (duplicateDialog.open) duplicateDialog.close();
+    return;
+  }
+  setError(mobileInput, duplicateMessage);
+  if (lastDuplicateWarningKey === visitKey()) return;
+  lastDuplicateWarningKey = visitKey();
+  if (customerDialog.open) customerDialog.close();
+  if (!duplicateDialog.open) duplicateDialog.showModal();
 }
 
 function visitDescription(visit) {
-  const date = visit.visit_date || visit.created_at?.slice(0, 10);
+  const date = visitDay(visit);
   const formatted = date ? new Intl.DateTimeFormat('en-IN', {
     day: 'numeric', month: 'short', year: 'numeric',
   }).format(new Date(`${date}T00:00:00`)) : 'Date unavailable';
   return `${visit.outlet} · ${formatted} · ${visit.pax ?? 'Unknown'} guests`;
 }
 
-async function lookupCustomer(version) {
-  const key = `${nameInput.value.trim()}|${mobileDigits()}`;
-  if (key === lastOfferedLookup) return;
+async function lookupCustomer() {
+  clearCustomerLookup();
+  checkedCustomer = null;
+  lastDuplicateWarningKey = '';
+  if (!/^[6-9]\d{9}$/.test(mobileDigits())) {
+    setError(mobileInput, 'Enter a valid 10-digit mobile number.');
+    mobileInput.focus();
+    return;
+  }
+  setError(mobileInput, '');
+  const version = lookupVersion;
+  checkInProgress = true;
+  customerCheckButton.disabled = true;
+  validate();
   lookupController = new AbortController();
   try {
     const response = await fetch('/api/customers/match', {
       method: 'POST', headers: { 'content-type': 'application/json' },
       signal: lookupController.signal,
-      body: JSON.stringify({ name: nameInput.value, mobile: mobileInput.value }),
+      body: JSON.stringify({ mobile: mobileDigits() }),
     });
     if (!response.ok) throw new Error('Lookup unavailable');
     const { customers } = await response.json();
     if (version !== lookupVersion || checkInView.hidden || submitButton.classList.contains('is-loading')) return;
-    if (!customers.length) return;
-    lastOfferedLookup = key;
+    checkedCustomer = customers[0] || null;
+    if (!checkedCustomer) {
+      customerHints.textContent = 'New customer — enter the name and visit details below.';
+      customerHints.hidden = false;
+      nameInput.focus();
+      return;
+    }
     customerMatches.replaceChildren();
     for (const customer of customers) {
-      if (!customer.mobile) {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'customer-hint';
-        button.textContent = `${customer.name} · ${customer.masked_mobile} — enter full number to view visits`;
-        button.addEventListener('click', () => {
-          nameInput.value = customer.name;
-          setError(nameInput, '');
-          validate();
-          mobileInput.focus();
-        });
-        customerHints.append(button);
-        customerHints.hidden = false;
-        continue;
-      }
       const section = document.createElement('section');
       section.className = 'customer-match';
       const heading = document.createElement('h3');
@@ -279,32 +322,45 @@ async function lookupCustomer(version) {
       section.append(heading, count, visits, button);
       customerMatches.append(section);
     }
-    if (customerMatches.childElementCount && !customerDialog.open) customerDialog.showModal();
+    if (isSameDayGroupDuplicate()) updateDuplicateWarning();
+    else if (customerMatches.childElementCount && !customerDialog.open) customerDialog.showModal();
   } catch (error) {
     if (error.name !== 'AbortError' && version === lookupVersion) {
       customerHints.textContent = 'Previous visits could not be checked. You can still enter details and save this visit.';
       customerHints.hidden = false;
     }
+  } finally {
+    if (version === lookupVersion) {
+      checkInProgress = false;
+      customerCheckButton.disabled = false;
+      validate();
+    }
   }
 }
 
-for (const input of [nameInput, mobileInput]) {
-  input.addEventListener('input', () => {
-    clearCustomerLookup();
-    lastOfferedLookup = '';
-    const version = lookupVersion;
-    lookupTimer = setTimeout(() => lookupCustomer(version), 450);
-  });
-}
+customerCheckButton.addEventListener('click', lookupCustomer);
+mobileInput.addEventListener('input', () => {
+  clearCustomerLookup();
+  checkedCustomer = null;
+  lastDuplicateWarningKey = '';
+  validate();
+});
+for (const input of [paxInput, visitDateInput]) input.addEventListener('input', updateDuplicateWarning);
 document.querySelector('#dismiss-customer-match').addEventListener('click', () => customerDialog.close());
+document.querySelector('#dismiss-duplicate-visit').addEventListener('click', () => {
+  duplicateDialog.close();
+  mobileInput.focus();
+});
 
 outletSelect.addEventListener('change', () => setTheme(outletSelect.value));
 renderTheme(outletSelect.value);
 
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
+  if (submitButton.classList.contains('is-loading')) return;
   if (!validate({ showErrors: true })) return;
   const selectedOutlet = outletSelect.value;
+  const submittedVisitKey = visitKey();
 
   clearCustomerLookup();
 
@@ -329,6 +385,15 @@ form.addEventListener('submit', async (event) => {
     });
     const payload = await response.json();
     if (!response.ok) {
+      if (payload.code === 'same_day_group_duplicate') {
+        blockedVisitKeys.add(submittedVisitKey);
+        if (visitKey() === submittedVisitKey) {
+          lastDuplicateWarningKey = '';
+          updateDuplicateWarning();
+          throw new Error(payload.error);
+        }
+        throw new Error('The previous entry was not saved because its number already had a visit on that date. Check the current details and try again.');
+      }
       if (payload.field === 'name') setError(nameInput, payload.error);
       if (payload.field === 'mobile') setError(mobileInput, payload.error);
       if (payload.field === 'pax') setError(paxInput, payload.error);
@@ -361,15 +426,18 @@ form.addEventListener('submit', async (event) => {
     status.textContent = error.message === 'Failed to fetch'
       ? 'We couldn’t save this check-in. Please try once more.'
       : error.message;
-    submitButton.disabled = false;
+    validate();
   } finally {
     submitButton.classList.remove('is-loading');
+    validate();
   }
 });
 
 document.querySelector('#next-guest').addEventListener('click', () => {
   clearCustomerLookup();
-  lastOfferedLookup = '';
+  checkedCustomer = null;
+  lastDuplicateWarningKey = '';
+  blockedVisitKeys.clear();
   form.reset();
   nameInput.value = '';
   mobileInput.value = '';
@@ -383,7 +451,7 @@ document.querySelector('#next-guest').addEventListener('click', () => {
   successView.hidden = true;
   gsap.set([checkInView, successView], { clearProps: 'all' });
   validate();
-  nameInput.focus();
+  mobileInput.focus();
 });
 
 if ('serviceWorker' in navigator) {

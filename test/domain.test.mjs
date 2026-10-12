@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import { DatabaseSync } from 'node:sqlite';
 
 import * as domain from '../src/domain.mjs';
 
@@ -94,6 +95,27 @@ test('escapes CSV formulas and quotes', () => {
   assert.equal(escapeCsvCell('Kampai'), 'Kampai');
 });
 
+test('same-day protection includes legacy entries using their Indian registration date', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'walkin-legacy-'));
+  const path = join(directory, 'leads.db');
+  createLeadStore(path).close();
+  const database = new DatabaseSync(path);
+  database.prepare('INSERT INTO leads (name, mobile, outlet, created_at) VALUES (?, ?, ?, ?)')
+    .run('Aditi', '9876543210', 'Basque', '2026-10-11T20:00:00.000Z');
+  database.close();
+  const store = createLeadStore(path);
+  try {
+    const entry = { name: 'Aditi', mobile: '9876543210', outlet: 'Kampai', pax: 2, visit_date: '2026-10-12', table_number: '1', lead_source: 'Walk-in' };
+    assert.throws(() => store.add(entry), error => error.status === 409);
+    assert.equal(store.count(), 1);
+    assert.equal(store.add({ ...entry, pax: 1 }).pax, 1);
+    assert.equal(store.add({ ...entry, visit_date: '2026-10-11' }).pax, 2);
+  } finally {
+    store.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test('customer history uses visit dates, counts three visits and treats search wildcards literally', () => {
   const store = createLeadStore(':memory:');
   try {
@@ -150,6 +172,10 @@ test('stores production leads in Postgres', async () => {
     async end() {
       closed = true;
     }
+
+    async connect() {
+      return { query: this.query.bind(this), release() {} };
+    }
   }
 
   const store = await domain.createPostgresLeadStore('postgres://example', TestPool);
@@ -175,4 +201,49 @@ test('stores production leads in Postgres', async () => {
   assert.deepEqual(queries.find(({ text }) => text.includes('INSERT INTO leads')).values, ['Aditi Sharma', '9876543210', 'Basque', 3, '2026-10-01', 'A-7', 'Dineout']);
   assert.deepEqual(queries.at(-1).values, ['Basque']);
   assert.equal(closed, true);
+});
+
+test('Postgres keeps the duplicate check and save on one locked transaction and releases it', async () => {
+  const commands = [];
+  let released = 0;
+  let failInsert = false;
+  class TestPool {
+    async query() { return { rows: [] }; }
+    async connect() {
+      return {
+        async query(text, values = []) {
+          commands.push({ text, values });
+          if (text.includes('SELECT 1 FROM leads')) return { rows: [{ exists: 1 }] };
+          if (text.includes('INSERT INTO leads')) {
+            if (failInsert) throw new Error('Database write failed');
+            return { rows: [{ id: '8' }] };
+          }
+          return { rows: [] };
+        },
+        release() { released++; },
+      };
+    }
+    async end() {}
+  }
+  const store = await domain.createPostgresLeadStore('postgres://test', TestPool);
+  const lead = { name: 'Aditi', mobile: '+91 98765 43210', outlet: 'Kampai', pax: 3,
+    visit_date: '2026-10-12', table_number: '12', lead_source: 'Walk-in' };
+  await assert.rejects(store.add(lead), error => error.code === 'same_day_group_duplicate' && error.status === 409);
+  assert.equal(commands[0].text, 'BEGIN');
+  assert.match(commands[1].text, /pg_advisory_xact_lock/);
+  assert.deepEqual(commands[1].values, ['9876543210:2026-10-12']);
+  assert.ok(!commands.some(command => command.text.includes('INSERT INTO leads')));
+  assert.equal(commands.at(-1).text, 'ROLLBACK');
+  assert.equal(released, 1);
+  commands.length = 0;
+  assert.equal((await store.add({ ...lead, pax: 1 })).id, 8);
+  assert.match(commands[1].text, /pg_advisory_xact_lock/);
+  assert.ok(!commands.some(command => command.text.includes('SELECT 1 FROM leads')));
+  assert.equal(commands.at(-1).text, 'COMMIT');
+  assert.equal(released, 2);
+  failInsert = true;
+  await assert.rejects(store.add({ ...lead, pax: 1 }), /Database write failed/);
+  assert.equal(commands.at(-1).text, 'ROLLBACK');
+  assert.equal(released, 3);
+  await store.close();
 });

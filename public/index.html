@@ -13,9 +13,9 @@
     <link rel="preload" as="image" href="/brands/embassy-cp.jpg">
     <link rel="preload" as="image" href="/brands/embassy-elan.jpg">
     <link rel="preload" as="image" href="/brands/embassy-vk.jpg">
-    <link rel="stylesheet" href="/styles.css?v=13">
+    <link rel="stylesheet" href="/styles.css?v=14">
     <script src="/vendor/gsap.min.js" defer></script>
-    <script src="/guest.js?v=13" defer></script>
+    <script src="/guest.js?v=14" defer></script>
   </head>
   <body class="guest-page" data-brand="kampai" data-outlet="Kampai">
     <main class="brand-stage">
@@ -63,21 +63,22 @@
 
             <form id="lead-form" novalidate>
               <div class="field-group">
-                <label for="guest-name">Your name</label>
-                <input id="guest-name" name="name" type="text" autocomplete="name" maxlength="80" placeholder="How should we welcome you?" aria-describedby="name-error" required>
-                <p class="field-error" id="name-error" aria-live="polite"></p>
-              </div>
-
-              <div class="field-group">
                 <label for="guest-mobile">Mobile number</label>
                 <div class="phone-field">
                   <span aria-hidden="true">+91</span>
                   <input id="guest-mobile" name="mobile" type="tel" inputmode="numeric" autocomplete="tel-national" maxlength="14" placeholder="98765 43210" aria-describedby="mobile-error" required>
+                  <button id="check-customer" class="liquid-button phone-check" type="button">Check</button>
                 </div>
                 <p class="field-error" id="mobile-error" aria-live="polite"></p>
               </div>
 
               <div id="customer-hints" class="customer-hints" aria-live="polite" hidden></div>
+
+              <div class="field-group">
+                <label for="guest-name">Your name</label>
+                <input id="guest-name" name="name" type="text" autocomplete="name" maxlength="80" placeholder="How should we welcome you?" aria-describedby="name-error" required>
+                <p class="field-error" id="name-error" aria-live="polite"></p>
+              </div>
 
               <div class="visit-details">
                 <div class="field-group">
@@ -144,10 +145,18 @@
 
     <dialog id="customer-match-dialog" class="customer-match-dialog guest-card__content" aria-labelledby="customer-match-title">
       <p class="welcome-note">Welcome back</p>
-      <h2 id="customer-match-title">Previous visits found</h2>
-      <p class="invitation-copy">Choose a customer to fill their name and number. Confirm today's guests, booking source, and table for this new visit.</p>
+      <h2 id="customer-match-title">Existing customer</h2>
+      <p class="invitation-copy">This number is already registered. Use the saved customer details, then confirm the guests, booking source, and table for this visit.</p>
       <div id="customer-matches"></div>
       <button id="dismiss-customer-match" class="customer-dismiss" type="button">Continue without autofill</button>
+    </dialog>
+
+    <dialog id="duplicate-visit-dialog" class="customer-match-dialog guest-card__content" aria-labelledby="duplicate-visit-title">
+      <p class="welcome-note">Number already used on this date</p>
+      <h2 id="duplicate-visit-title">Existing customer</h2>
+      <p class="invitation-copy">Please register using a different number for more than 1 guest. This number already has a visit on the selected date.</p>
+      <p class="invitation-copy">For 1 guest, another visit with the same number is allowed.</p>
+      <button id="dismiss-duplicate-visit" class="primary-action liquid-button" type="button">Back to form</button>
     </dialog>
 
     <a class="staff-portal-link" href="/admin" aria-label="Staff Guest Book" title="Staff Guest Book">
