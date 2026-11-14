@@ -15,7 +15,9 @@
     <link rel="preload" as="image" href="/brands/embassy-vk.jpg">
     <link rel="stylesheet" href="/styles.css?v=14">
     <script src="/vendor/gsap.min.js" defer></script>
-    <script src="/guest.js?v=14" defer></script>
+    <script src="/guest.js?v=15" defer></script>
+    <link rel="stylesheet" href="/reservations.css?v=2">
+    <script src="/reservation-panel.js?v=5" defer></script>
   </head>
   <body class="guest-page" data-brand="kampai" data-outlet="Kampai">
     <main class="brand-stage">
@@ -144,10 +146,11 @@
     </main>
 
     <dialog id="customer-match-dialog" class="customer-match-dialog guest-card__content" aria-labelledby="customer-match-title">
-      <p class="welcome-note">Welcome back</p>
-      <h2 id="customer-match-title">Existing customer</h2>
-      <p class="invitation-copy">This number is already registered. Use the saved customer details, then confirm the guests, booking source, and table for this visit.</p>
+      <p class="welcome-note">Customer check</p>
+      <h2 id="customer-match-title">Customer lookup</h2>
+      <p id="customer-match-copy" class="invitation-copy">Review the customer and reservation details found for this number.</p>
       <div id="customer-matches"></div>
+      <div id="reservation-match"></div>
       <button id="dismiss-customer-match" class="customer-dismiss" type="button">Continue without autofill</button>
     </dialog>
 

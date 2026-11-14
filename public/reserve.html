@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+    <meta name="referrer" content="no-referrer">
+    <meta name="theme-color" content="#18130e">
+    <title>Reserve your table</title>
+    <link rel="stylesheet" href="/reservations.css?v=3">
+    <script src="/reserve.js?v=2" defer></script>
+  </head>
+  <body class="reservation-page">
+    <main class="reservation-shell">
+      <section id="booking-photo" class="reservation-visual" aria-labelledby="venue-title">
+        <a class="collection-mark" href="/reserve">Avantika Hospitality Collection</a>
+        <div class="venue-heading">
+          <p id="venue-location">Delhi NCR</p>
+          <h1 id="venue-title">Your table awaits.</h1>
+          <p id="venue-note">Thoughtful hospitality, reserved for you.</p>
+        </div>
+      </section>
+
+      <section class="reservation-stage" aria-labelledby="booking-title">
+        <div class="booking-panel">
+          <header class="booking-header">
+            <p>Reserve your table</p>
+            <h2 id="booking-title">Plan your next visit.</h2>
+            <span>Choose your preferred date and time. The restaurant team will confirm availability.</span>
+          </header>
+
+          <form id="booking-form" class="booking-form">
+            <label class="field field--full">
+              <span>Restaurant</span>
+              <select name="venue" required></select>
+            </label>
+            <div class="booking-grid">
+              <label class="field">
+                <span>Your name</span>
+                <input name="name" autocomplete="name" minlength="2" maxlength="80" placeholder="Name for the reservation" required>
+              </label>
+              <label class="field">
+                <span>Mobile number</span>
+                <input name="mobile" autocomplete="tel" type="tel" inputmode="numeric" maxlength="14" placeholder="10-digit mobile number" required>
+              </label>
+              <label class="field">
+                <span>Date</span>
+                <input name="date" type="date" required>
+              </label>
+              <label class="field">
+                <span>Preferred time</span>
+                <input name="time" type="time" required>
+              </label>
+              <label class="field field--guests">
+                <span>Number of guests</span>
+                <input name="pax" type="number" min="1" max="50" value="2" required>
+              </label>
+            </div>
+            <label class="field field--full">
+              <span>Special requests <small>Optional</small></span>
+              <textarea name="notes" maxlength="500" rows="3" placeholder="Celebration, dietary needs or seating preference"></textarea>
+            </label>
+            <button class="reserve-action" type="submit"><span>Request a table</span></button>
+            <p class="booking-fine-print">Your request remains pending until the restaurant confirms it.</p>
+          </form>
+          <div id="booking-result" class="booking-result" aria-live="polite"></div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

@@ -30,7 +30,7 @@ async function startTestApp(options = {}) {
     baseUrl: `http://127.0.0.1:${port}`,
     close: async () => {
       await new Promise((resolve) => server.close(resolve));
-      app.close();
+      await app.close();
       rmSync(directory, { recursive: true, force: true });
     },
   };
@@ -133,6 +133,37 @@ test('captures a lead and rejects invalid or oversized input', async () => {
     });
     assert.equal(malformed.status, 400);
     assert.deepEqual(await malformed.json(), { error: 'Send valid JSON.' });
+  } finally {
+    await app.close();
+  }
+});
+
+test('phone Check can return a safe reservation match for the unified popup', async () => {
+  const app = await startTestApp();
+  try {
+    const future = new Date(Date.now() + 2 * 86400000);
+    const date = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(future);
+    const created = await request(`${app.baseUrl}/api/reservations`, { method: 'POST', json: {
+      venue: 'kampai', name: 'Google Guest', mobile: '9876543210', pax: 3,
+      date, time: '23:30', referral: 'google', request_id: 'lookup-test-123456',
+    } });
+    assert.equal(created.status, 201);
+    const response = await request(`${app.baseUrl}/api/reservations/match`, { method: 'POST', json: {
+      mobile: '9876543210', outlet: 'Kampai', date,
+    } });
+    assert.equal(response.status, 200);
+    const { reservations } = await response.json();
+    assert.equal(reservations.length, 1);
+    assert.equal(reservations[0].name, 'Google Guest');
+    assert.equal(reservations[0].referral, 'google');
+    assert.equal('token' in reservations[0], false);
+    assert.equal('history' in reservations[0], false);
+    const none = await request(`${app.baseUrl}/api/reservations/match`, { method: 'POST', json: {
+      mobile: '9876543210', outlet: 'Basque', date,
+    } });
+    assert.deepEqual((await none.json()).reservations, []);
   } finally {
     await app.close();
   }

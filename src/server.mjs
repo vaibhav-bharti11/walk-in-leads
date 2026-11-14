@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { OUTLETS, createLeadStore, createPostgresLeadStore, escapeCsvCell, customerGroups } from './domain.mjs';
 import { syncLeadToGoogleSheets } from './sheets.mjs';
+import { createReservationStore, VENUES } from './reservations.mjs';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const BODY_LIMIT = 16 * 1024;
@@ -14,6 +15,10 @@ const SESSION_AGE_SECONDS = 8 * 60 * 60;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const MAX_LOGIN_FAILURES = 5;
 const STATIC_FILES = new Map([
+  ['/reserve', ['public/reserve.html', 'text/html; charset=utf-8']],
+  ['/reserve.js', ['public/reserve.js', 'text/javascript; charset=utf-8']],
+  ['/reservations.css', ['public/reservations.css', 'text/css; charset=utf-8']],
+  ['/reservation-panel.js', ['public/reservation-panel.js', 'text/javascript; charset=utf-8']],
   ['/', ['public/index.html', 'text/html; charset=utf-8']],
   ['/admin', ['public/admin.html', 'text/html; charset=utf-8']],
   ['/admin.js', ['public/admin.js', 'text/javascript; charset=utf-8']],
@@ -23,7 +28,9 @@ const STATIC_FILES = new Map([
   ['/sw.js', ['public/sw.js', 'text/javascript; charset=utf-8']],
   ['/icons/icon.svg', ['public/icons/icon.svg', 'image/svg+xml']],
   ['/brands/kampai-interior.png', ['public/brands/kampai-interior.png', 'image/png']],
+  ['/brands/kampai-google.jpg', ['public/brands/kampai-google.jpg', 'image/jpeg']],
   ['/brands/basque-garden.jpg', ['public/brands/basque-garden.jpg', 'image/jpeg']],
+  ['/brands/basque-google.jpg', ['public/brands/basque-google.jpg', 'image/jpeg']],
   ['/brands/embassy-cp.jpg', ['public/brands/embassy-cp.jpg', 'image/jpeg']],
   ['/brands/embassy-elan.jpg', ['public/brands/embassy-elan.jpg', 'image/jpeg']],
   ['/brands/embassy-vk.jpg', ['public/brands/embassy-vk.jpg', 'image/jpeg']],
@@ -138,6 +145,7 @@ export function createApp({
 }) {
   if (!leadStore) mkdirSync(dirname(databasePath), { recursive: true });
   const store = leadStore || createLeadStore(databasePath);
+  const reservations = databasePath || process.env.DATABASE_URL ? createReservationStore({ databasePath, connectionString: process.env.DATABASE_URL }) : null;
   const sessions = createSessionTools(sessionSecret);
   const passwordSalt = sessionSecret.slice(0, 32);
   const cookieFlags = `Path=/; HttpOnly; SameSite=Strict${secureCookies ? '; Secure' : ''}`;
@@ -177,6 +185,48 @@ export function createApp({
     response.setHeader('x-frame-options', 'DENY');
     if (secureCookies) response.setHeader('strict-transport-security', 'max-age=31536000; includeSubDomains');
     try {
+      if (url.pathname === '/api/reservation-venues' && request.method === 'GET') return json(response,200,{ venues: VENUES });
+      if (url.pathname === '/api/reservations' && request.method === 'POST') {
+        if (!reservations) return json(response,503,{error:'Reservations unavailable.'});
+        return json(response,201,{reservation:await reservations.create(await readJson(request))});
+      }
+      if (url.pathname === '/api/reservation-status' && request.method === 'POST') {
+        const input = await readJson(request);
+        const r = await reservations?.byToken(String(input.token || ''));
+        if (!r) return json(response,404,{error:'Reservation not found.'});
+        const result = input.action === 'cancel' ? await reservations.change(r.id,{...input,status:'cancelled'},'guest',[],input.token) : r;
+        const {history,mobile,...visible} = result;
+        return json(response,200,{reservation:visible});
+      }
+      if (url.pathname === '/api/reservations/match' && request.method === 'POST') {
+        if (!reservations) return json(response,503,{error:'Reservations unavailable.'});
+        const input = await readJson(request);
+        let mobile = String(input.mobile || '').replace(/\D/g,'');
+        if (mobile.length === 12 && mobile.startsWith('91')) mobile = mobile.slice(2);
+        const outlet = String(input.outlet || '');
+        const date = String(input.date || '');
+        if (!/^[6-9]\d{9}$/.test(mobile) || !OUTLETS.includes(outlet) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+          return json(response,400,{error:'Enter a valid phone number, outlet and date.'});
+        }
+        const matches = (await reservations.list())
+          .filter(r => r.mobile === mobile && r.outlet === outlet && r.date === date)
+          .map(({id,name,mobile,outlet,pax,date,time,notes,referral,status}) => ({id,name,mobile,outlet,pax,date,time,notes,referral,status}));
+        return json(response,200,{reservations:matches});
+      }
+      if (url.pathname.startsWith('/api/admin/reservations')) {
+        const session = authorized(request);
+        if (!session) return json(response,401,{error:'Please sign in to check reservations.'});
+        if (!reservations) return json(response,503,{error:'Reservations unavailable.'});
+        const allowed = scopeOutlets[session.scope] || [];
+        if (request.method === 'GET' && url.pathname === '/api/admin/reservations') {
+          const list = (await reservations.list()).filter(r => allowed.includes(r.outlet));
+          return json(response,200,{reservations:list,allowedOutlets:allowed});
+        }
+        if (request.method === 'POST' && url.pathname === '/api/admin/reservations/action') {
+          const input = await readJson(request);
+          return json(response,200,{reservation:await reservations.change(input.id,input,session.scope,allowed)});
+        }
+      }
       if (request.method === 'POST' && url.pathname === '/api/customers/match') {
         const input = await readJson(request);
         const customers = await store.matchCustomers(input);
@@ -329,7 +379,7 @@ export function createApp({
     }
   }
 
-  return { handler, close: () => store.close() };
+  return { handler, close: async () => { await reservations?.close(); await store.close(); } };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

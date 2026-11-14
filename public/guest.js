@@ -222,7 +222,10 @@ leadSourceSelect.addEventListener('blur', () => validate({ showErrors: true }));
 updateCustomSource();
 
 const customerDialog = document.querySelector('#customer-match-dialog');
+const customerDialogTitle = document.querySelector('#customer-match-title');
+const customerDialogCopy = document.querySelector('#customer-match-copy');
 const customerMatches = document.querySelector('#customer-matches');
+const reservationMatch = document.querySelector('#reservation-match');
 const customerHints = document.querySelector('#customer-hints');
 const duplicateDialog = document.querySelector('#duplicate-visit-dialog');
 let lookupController;
@@ -261,6 +264,54 @@ function visitDescription(visit) {
   return `${visit.outlet} · ${formatted} · ${visit.pax ?? 'Unknown'} guests`;
 }
 
+function autofillCustomer({ name, mobile }) {
+  nameInput.value = name;
+  mobileInput.value = mobile;
+  setError(nameInput, '');
+  setError(mobileInput, '');
+}
+
+function renderReservationMatches(reservations) {
+  reservationMatch.replaceChildren();
+  const section = document.createElement('section');
+  section.className = 'customer-match reservation-match';
+  const heading = document.createElement('h3');
+  heading.textContent = reservations === null ? 'Reservation lookup unavailable'
+    : reservations.length ? 'Reservation found' : 'No reservation found';
+  section.append(heading);
+  if (reservations === null) {
+    const copy = document.createElement('p');
+    copy.textContent = 'Previous customer visits are shown above. Reservations could not be checked right now.';
+    section.append(copy);
+  } else if (!reservations.length) {
+    const copy = document.createElement('p');
+    copy.textContent = `No reservation for this number at ${outletSelect.value} on ${visitDateInput.value}.`;
+    section.append(copy);
+  } else {
+    for (const reservation of reservations) {
+      const details = document.createElement('p');
+      details.textContent = `${reservation.name} · ${reservation.time} · ${reservation.pax} guests · ${reservation.status.toUpperCase()}`;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'primary-action liquid-button';
+      button.textContent = 'Autofill reservation details';
+      button.addEventListener('click', () => {
+        autofillCustomer(reservation);
+        paxInput.value = reservation.pax;
+        visitDateInput.value = reservation.date;
+        leadSourceSelect.value = 'Custom';
+        customSourceInput.value = reservation.referral === 'google' ? 'Google reservation' : 'Direct reservation';
+        updateCustomSource();
+        validate();
+        customerDialog.close();
+        tableNumberInput.focus();
+      });
+      section.append(details, button);
+    }
+  }
+  reservationMatch.append(section);
+}
+
 async function lookupCustomer() {
   clearCustomerLookup();
   checkedCustomer = null;
@@ -277,22 +328,33 @@ async function lookupCustomer() {
   validate();
   lookupController = new AbortController();
   try {
-    const response = await fetch('/api/customers/match', {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      signal: lookupController.signal,
-      body: JSON.stringify({ mobile: mobileDigits() }),
+    const request = (path, body) => fetch(path, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, signal: lookupController.signal,
+      body: JSON.stringify(body),
     });
-    if (!response.ok) throw new Error('Lookup unavailable');
-    const { customers } = await response.json();
+    const [customerResponse, reservationResponse] = await Promise.all([
+      request('/api/customers/match', { mobile: mobileDigits() }),
+      request('/api/reservations/match', { mobile: mobileDigits(), outlet: outletSelect.value, date: visitDateInput.value }),
+    ]);
+    if (!customerResponse.ok) throw new Error('Lookup unavailable');
+    const { customers } = await customerResponse.json();
+    const reservations = reservationResponse.ok ? (await reservationResponse.json()).reservations : null;
     if (version !== lookupVersion || checkInView.hidden || submitButton.classList.contains('is-loading')) return;
     checkedCustomer = customers[0] || null;
-    if (!checkedCustomer) {
-      customerHints.textContent = 'New customer — enter the name and visit details below.';
-      customerHints.hidden = false;
-      nameInput.focus();
-      return;
-    }
     customerMatches.replaceChildren();
+    customerDialogTitle.textContent = customers.length
+      ? (reservations?.length ? 'Customer and reservation found' : 'Existing customer')
+      : (reservations?.length ? 'New customer with a reservation' : 'New customer');
+    customerDialogCopy.textContent = customers.length
+      ? 'Use the saved customer details below. Reservation information for this visit appears underneath.'
+      : 'No previous visit was found. If this guest has a reservation, use it to autofill the form.';
+    if (!customers.length) {
+      const section = document.createElement('section');
+      section.className = 'customer-match';
+      const heading = document.createElement('h3'); heading.textContent = 'No previous customer record';
+      const copy = document.createElement('p'); copy.textContent = 'This number will create a new customer record when the visit is saved.';
+      section.append(heading, copy); customerMatches.append(section);
+    }
     for (const customer of customers) {
       const section = document.createElement('section');
       section.className = 'customer-match';
@@ -311,19 +373,16 @@ async function lookupCustomer() {
       button.className = 'primary-action liquid-button';
       button.textContent = 'Use these customer details';
       button.addEventListener('click', () => {
-        nameInput.value = customer.name;
-        mobileInput.value = customer.mobile;
-        setError(nameInput, '');
-        setError(mobileInput, '');
+        autofillCustomer(customer);
         validate();
-        clearCustomerLookup();
+        customerDialog.close();
         paxInput.focus();
       });
       section.append(heading, count, visits, button);
       customerMatches.append(section);
     }
-    if (isSameDayGroupDuplicate()) updateDuplicateWarning();
-    else if (customerMatches.childElementCount && !customerDialog.open) customerDialog.showModal();
+    renderReservationMatches(reservations);
+    if (!customerDialog.open) customerDialog.showModal();
   } catch (error) {
     if (error.name !== 'AbortError' && version === lookupVersion) {
       customerHints.textContent = 'Previous visits could not be checked. You can still enter details and save this visit.';

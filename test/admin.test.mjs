@@ -20,7 +20,7 @@ test('admin exact visit count filters customers and shows the matching total', a
     return elements.get(selector);
   };
   const context = vm.createContext({
-    document: { querySelector: element, querySelectorAll: () => [], createElement: () => new Element() },
+    document: { addEventListener() {}, querySelector: element, querySelectorAll: () => [], createElement: () => new Element() },
     window: { gsap: {}, matchMedia: () => ({ matches: true }) },
     fetch: async () => ({ status: 401 }),
     setTimeout: () => 0, clearTimeout() {}, Intl, Date,

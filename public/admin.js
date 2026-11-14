@@ -358,6 +358,7 @@ async function loadLeads() {
     showToast('Failed to load guest ledger. Please retry.', true);
   }
 }
+document.addEventListener('reservations-changed', loadLeads);
 
 // Filter pill click listener
 filterPills.forEach((pill) => {
