@@ -5,7 +5,7 @@ import pg from 'pg';
 export const VENUES = {
   'embassy-vk': { name: 'Embassy — Vasant Kunj', image: 'embassy-vk.jpg' },
   'embassy-elan': { name: 'Embassy — Elan Epic', image: 'embassy-elan.jpg' },
-  basque: { name: 'Basque', image: 'basque-google.jpg' },
+  basque: { name: 'Basque', image: 'basque-garden.jpg' },
   kampai: { name: 'Kampai', image: 'kampai-google.jpg' },
 };
 const fail = (message, status = 400) => { throw Object.assign(new Error(message), { status }); };
