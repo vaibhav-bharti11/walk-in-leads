@@ -4,12 +4,6 @@ const form = document.querySelector('#booking-form');
 const result = document.querySelector('#booking-result');
 const submitButton = form.querySelector('[type="submit"]');
 const params = new URLSearchParams(location.search);
-const venueMeta = {
-  'embassy-vk': { location: 'DLF Promenade · Vasant Kunj', note: 'A Delhi tradition, welcoming generations.' },
-  'embassy-elan': { location: 'Elan Epic · Gurugram', note: 'Legacy dining, now in Gurugram.' },
-  basque: { location: 'Malsi · Dehradun', note: 'Garden dining beneath the Dehradun sky.' },
-  kampai: { location: 'Worldmark 1 · Aerocity', note: 'Japanese hospitality in the heart of Delhi.' },
-};
 let requestId = crypto.randomUUID();
 let activeStep = 0;
 
@@ -181,12 +175,7 @@ async function init() {
   function theme() {
     const id = select.value;
     const venue = venues[id];
-    const meta = venueMeta[id] || {};
     document.body.dataset.venue = id;
-    document.querySelector('#venue-title').textContent = venue.name;
-    document.querySelector('#venue-location').textContent = meta.location || 'Avantika Hospitality Collection';
-    document.querySelector('#venue-note').textContent = meta.note || 'Thoughtful hospitality, reserved for you.';
-    document.querySelector('#booking-photo').style.setProperty('--venue-image', `url('/brands/${venue.image}')`);
     document.title = `Reserve at ${venue.name}`;
   }
   select.onchange = theme;

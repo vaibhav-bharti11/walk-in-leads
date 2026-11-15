@@ -1,12 +1,12 @@
-const CACHE = 'avantika-hospitality-v15';
+const CACHE = 'avantika-hospitality-v16';
 const SHELL = [
   '/',
   '/styles.css?v=14',
   '/guest.js?v=14',
   '/reserve',
-  '/reserve.js?v=4',
+  '/reserve.js?v=5',
   '/reserve-model.js',
-  '/reservations.css?v=4',
+  '/reservations.css?v=5',
   '/vendor/gsap.min.js',
   '/manifest.webmanifest',
   '/icons/icon.svg',
