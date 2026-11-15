@@ -382,6 +382,27 @@ test('rate limits repeated admin password failures from one client', async () =>
   }
 });
 
+test('serves the compact multi-step reservation flow', async () => {
+  const app = await startTestApp();
+  try {
+    const page = await fetch(`${app.baseUrl}/reserve?venue=basque&source=google`);
+    assert.equal(page.status, 200);
+    const html = await page.text();
+    assert.match(html, /id="booking-steps"/);
+    assert.match(html, /data-step="schedule"/);
+    assert.match(html, /data-step="seating"/);
+    assert.match(html, /data-step="details"/);
+    assert.match(html, /id="party-minus"/);
+    assert.match(html, /id="date-options"/);
+    assert.match(html, /id="time-options"/);
+    assert.match(html, /Restaurant assigns the final table/);
+    assert.match(html, /\/vendor\/gsap\.min\.js/);
+    assert.equal((await fetch(`${app.baseUrl}/reserve-model.js`)).status, 200);
+  } finally {
+    await app.close();
+  }
+});
+
 test('serves the protected guest-book shell with accessible controls', async () => {
   const app = await startTestApp();
   try {

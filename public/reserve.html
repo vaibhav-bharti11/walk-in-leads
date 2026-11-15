@@ -4,63 +4,86 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
     <meta name="referrer" content="no-referrer">
-    <meta name="theme-color" content="#18130e">
+    <meta name="theme-color" content="#14241c">
     <title>Reserve your table</title>
-    <link rel="stylesheet" href="/reservations.css?v=3">
-    <script src="/reserve.js?v=2" defer></script>
+    <link rel="stylesheet" href="/reservations.css?v=4">
+    <script src="/vendor/gsap.min.js" defer></script>
+    <script type="module" src="/reserve.js?v=4"></script>
   </head>
-  <body class="reservation-page">
+  <body class="reservation-page" data-venue="basque">
     <main class="reservation-shell">
-      <section id="booking-photo" class="reservation-visual" aria-labelledby="venue-title">
+      <aside id="booking-photo" class="reservation-visual" aria-labelledby="venue-title">
         <a class="collection-mark" href="/reserve">Avantika Hospitality Collection</a>
         <div class="venue-heading">
           <p id="venue-location">Delhi NCR</p>
           <h1 id="venue-title">Your table awaits.</h1>
           <p id="venue-note">Thoughtful hospitality, reserved for you.</p>
         </div>
-      </section>
+      </aside>
 
       <section class="reservation-stage" aria-labelledby="booking-title">
         <div class="booking-panel">
           <header class="booking-header">
-            <p>Reserve your table</p>
-            <h2 id="booking-title">Plan your next visit.</h2>
-            <span>Choose your preferred date and time. The restaurant team will confirm availability.</span>
+            <div><p>Reserve a table</p><h2 id="booking-title">Plan your visit.</h2></div>
+            <p class="booking-assurance">A request takes under a minute. The restaurant confirms availability.</p>
           </header>
 
-          <form id="booking-form" class="booking-form">
-            <label class="field field--full">
-              <span>Restaurant</span>
-              <select name="venue" required></select>
-            </label>
-            <div class="booking-grid">
-              <label class="field">
-                <span>Your name</span>
-                <input name="name" autocomplete="name" minlength="2" maxlength="80" placeholder="Name for the reservation" required>
-              </label>
-              <label class="field">
-                <span>Mobile number</span>
-                <input name="mobile" autocomplete="tel" type="tel" inputmode="numeric" maxlength="14" placeholder="10-digit mobile number" required>
-              </label>
-              <label class="field">
-                <span>Date</span>
-                <input name="date" type="date" required>
-              </label>
-              <label class="field">
-                <span>Preferred time</span>
-                <input name="time" type="time" required>
-              </label>
-              <label class="field field--guests">
-                <span>Number of guests</span>
-                <input name="pax" type="number" min="1" max="50" value="2" required>
-              </label>
-            </div>
-            <label class="field field--full">
-              <span>Special requests <small>Optional</small></span>
-              <textarea name="notes" maxlength="500" rows="3" placeholder="Celebration, dietary needs or seating preference"></textarea>
-            </label>
-            <button class="reserve-action" type="submit"><span>Request a table</span></button>
-            <p class="booking-fine-print">Your request remains pending until the restaurant confirms it.</p>
+          <ol id="booking-steps" class="booking-steps" aria-label="Reservation progress">
+            <li class="is-active" data-progress="0"><span>1</span>When</li>
+            <li data-progress="1"><span>2</span>Seating</li>
+            <li data-progress="2"><span>3</span>Details</li>
+          </ol>
+
+          <form id="booking-form" class="booking-form" novalidate>
+            <section class="booking-step" data-step="schedule" data-step-index="0" aria-labelledby="schedule-title">
+              <div class="section-heading"><p>Step 1 of 3</p><h3 id="schedule-title">Choose your visit</h3></div>
+              <label class="field field--full"><span>Restaurant</span><select name="venue" required></select></label>
+              <fieldset class="choice-group">
+                <legend>Party size</legend>
+                <div class="party-stepper">
+                  <button id="party-minus" type="button" aria-label="Remove one guest">−</button>
+                  <output id="party-output" for="party-minus party-plus">2 guests</output>
+                  <button id="party-plus" type="button" aria-label="Add one guest">+</button>
+                  <input name="pax" type="hidden" value="2">
+                </div>
+              </fieldset>
+              <fieldset class="choice-group">
+                <legend>Date</legend>
+                <div id="date-options" class="date-options"></div>
+                <label class="date-custom">Choose another date <input name="date" type="date" required></label>
+              </fieldset>
+              <fieldset class="choice-group">
+                <legend>Preferred time</legend>
+                <div id="time-options" class="time-options"></div>
+                <input name="time" type="hidden" required>
+              </fieldset>
+              <button class="reserve-action step-next" type="button" data-next="1">Continue</button>
+            </section>
+
+            <section class="booking-step" data-step="seating" data-step-index="1" aria-labelledby="seating-title" hidden>
+              <div class="section-heading">
+                <p>Step 2 of 3</p><h3 id="seating-title">Where would you prefer?</h3>
+                <span>We’ll pass your preference to the team. Restaurant assigns the final table.</span>
+              </div>
+              <div class="seating-options">
+                <label><input type="radio" name="seating" value="Best available" checked><span><b>Best available</b><small>Let the host choose</small></span></label>
+                <label><input type="radio" name="seating" value="Quiet area"><span><b>Quiet area</b><small>A calmer table, if possible</small></span></label>
+                <label><input type="radio" name="seating" value="Accessible"><span><b>Accessible</b><small>Easy-access seating</small></span></label>
+                <label><input type="radio" name="seating" value="Window or outdoor"><span><b>Window / outdoor</b><small>Subject to the venue</small></span></label>
+              </div>
+              <div class="step-actions"><button class="text-action" type="button" data-back="0">Back</button><button class="reserve-action" type="button" data-next="2">Continue</button></div>
+            </section>
+
+            <section class="booking-step" data-step="details" data-step-index="2" aria-labelledby="details-title" hidden>
+              <div class="section-heading"><p>Step 3 of 3</p><h3 id="details-title">Who should we welcome?</h3></div>
+              <div class="booking-grid">
+                <label class="field"><span>Your name</span><input name="name" autocomplete="name" minlength="2" maxlength="80" placeholder="Name for the reservation" required></label>
+                <label class="field"><span>Mobile number</span><input name="mobile" autocomplete="tel" type="tel" inputmode="numeric" maxlength="14" placeholder="10-digit mobile number" required></label>
+              </div>
+              <label class="field field--full"><span>Special requests <small>Optional</small></span><textarea name="notes" maxlength="500" rows="3" placeholder="Celebration, dietary needs or anything else"></textarea></label>
+              <div class="step-actions"><button class="text-action" type="button" data-back="1">Back</button><button class="reserve-action" type="submit"><span>Request reservation</span></button></div>
+              <p class="booking-fine-print">Your request remains pending until the restaurant confirms it.</p>
+            </section>
           </form>
           <div id="booking-result" class="booking-result" aria-live="polite"></div>
         </div>

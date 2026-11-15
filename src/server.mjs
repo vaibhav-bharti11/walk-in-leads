@@ -17,6 +17,7 @@ const MAX_LOGIN_FAILURES = 5;
 const STATIC_FILES = new Map([
   ['/reserve', ['public/reserve.html', 'text/html; charset=utf-8']],
   ['/reserve.js', ['public/reserve.js', 'text/javascript; charset=utf-8']],
+  ['/reserve-model.js', ['public/reserve-model.js', 'text/javascript; charset=utf-8']],
   ['/reservations.css', ['public/reservations.css', 'text/css; charset=utf-8']],
   ['/reservation-panel.js', ['public/reservation-panel.js', 'text/javascript; charset=utf-8']],
   ['/', ['public/index.html', 'text/html; charset=utf-8']],
