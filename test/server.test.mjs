@@ -399,6 +399,8 @@ test('serves the compact multi-step reservation flow', async () => {
     assert.match(html, /\/vendor\/gsap\.min\.js/);
     assert.doesNotMatch(html, /booking-photo/);
     assert.doesNotMatch(html, /Avantika Hospitality Collection/);
+    assert.doesNotMatch(html, /<select name="venue"/);
+    assert.match(html, /<input name="venue" type="hidden">/);
     assert.equal((await fetch(`${app.baseUrl}/reserve-model.js`)).status, 200);
   } finally {
     await app.close();

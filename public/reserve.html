@@ -8,14 +8,14 @@
     <title>Reserve your table</title>
     <link rel="stylesheet" href="/reservations.css?v=5">
     <script src="/vendor/gsap.min.js" defer></script>
-    <script type="module" src="/reserve.js?v=5"></script>
+    <script type="module" src="/reserve.js?v=6"></script>
   </head>
   <body class="reservation-page" data-venue="basque">
     <main class="reservation-shell">
       <section class="reservation-stage" aria-labelledby="booking-title">
         <div class="booking-panel">
           <header class="booking-header">
-            <div><p>Reserve a table</p><h2 id="booking-title">Plan your visit.</h2></div>
+            <div><p id="venue-name">Reserve a table</p><h2 id="booking-title">Plan your visit.</h2></div>
             <p class="booking-assurance">A request takes under a minute. The restaurant confirms availability.</p>
           </header>
 
@@ -28,7 +28,7 @@
           <form id="booking-form" class="booking-form" novalidate>
             <section class="booking-step" data-step="schedule" data-step-index="0" aria-labelledby="schedule-title">
               <div class="section-heading"><p>Step 1 of 3</p><h3 id="schedule-title">Choose your visit</h3></div>
-              <label class="field field--full"><span>Restaurant</span><select name="venue" required></select></label>
+              <input name="venue" type="hidden">
               <fieldset class="choice-group">
                 <legend>Party size</legend>
                 <div class="party-stepper">

@@ -159,13 +159,15 @@ async function init() {
   const response = await fetch('/api/reservation-venues');
   if (!response.ok) throw new Error('Reservations unavailable');
   const { venues } = await response.json();
-  const select = form.elements.venue;
-  for (const [id, venue] of Object.entries(venues)) select.add(new Option(venue.name, id));
-  if (params.has('venue')) {
-    if (!venues[params.get('venue')]) { form.hidden = true; result.textContent = 'This restaurant is not accepting reservations here.'; return; }
-    select.value = params.get('venue');
-    select.disabled = true;
+  const venueId = params.get('venue');
+  if (!venueId || !venues[venueId]) {
+    form.hidden = true;
+    document.querySelector('.booking-steps').hidden = true;
+    result.textContent = 'Please open the reservation link for your restaurant.';
+    result.classList.add('is-visible');
+    return;
   }
+  form.elements.venue.value = venueId;
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   form.elements.date.min = today;
   form.elements.date.onchange = () => {
@@ -173,12 +175,11 @@ async function init() {
     renderTimes(form.elements.date.value, today);
   };
   function theme() {
-    const id = select.value;
-    const venue = venues[id];
-    document.body.dataset.venue = id;
+    const venue = venues[venueId];
+    document.body.dataset.venue = venueId;
+    document.querySelector('#venue-name').textContent = `Reserve at ${venue.name}`;
     document.title = `Reserve at ${venue.name}`;
   }
-  select.onchange = theme;
   setupParty();
   renderDates(today);
   theme();
