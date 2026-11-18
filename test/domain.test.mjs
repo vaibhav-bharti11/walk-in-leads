@@ -89,6 +89,56 @@ test('stores every visit and lists newest entries with optional outlet filtering
   }
 });
 
+test('dailySummary fills every configured venue with zero', () => {
+  const store = createLeadStore(':memory:');
+  try {
+    assert.deepEqual(store.dailySummary('2026-11-18'), OUTLETS.map((venue) => ({
+      venue,
+      entries: 0,
+      guests: 0,
+    })));
+  } finally {
+    store.close();
+  }
+});
+
+test('dailySummary counts entries and sums pax for one India date', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'walkin-summary-'));
+  const path = join(directory, 'leads.db');
+  const store = createLeadStore(path);
+  try {
+    store.add({ name: 'First Guest', mobile: '9876543210', outlet: 'Kampai', pax: 4, visit_date: '2026-11-18', table_number: '1', lead_source: 'Walk-in' });
+    store.add({ name: 'Second Guest', mobile: '9987654321', outlet: 'Kampai', pax: 2, visit_date: '2026-11-18', table_number: '2', lead_source: 'District' });
+    store.add({ name: 'Other Day', mobile: '9765432109', outlet: 'Kampai', pax: 7, visit_date: '2026-11-17', table_number: '3', lead_source: 'Walk-in' });
+
+    const database = new DatabaseSync(path);
+    database.prepare('INSERT INTO leads (name, mobile, outlet, created_at) VALUES (?, ?, ?, ?)')
+      .run('Legacy Guest', '9654321098', 'Basque', '2026-11-17T20:00:00.000Z');
+    database.close();
+
+    const summary = store.dailySummary('2026-11-18');
+    assert.deepEqual(summary.find(({ venue }) => venue === 'Kampai'), { venue: 'Kampai', entries: 2, guests: 6 });
+    assert.deepEqual(summary.find(({ venue }) => venue === 'Basque'), { venue: 'Basque', entries: 1, guests: 1 });
+  } finally {
+    store.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('dailySummary excludes adjacent dates', () => {
+  const store = createLeadStore(':memory:');
+  try {
+    for (const [mobile, visit_date] of [['9876543210', '2026-11-17'], ['9987654321', '2026-11-19']]) {
+      store.add({ name: 'Adjacent Guest', mobile, outlet: 'Basque', pax: 3, visit_date, table_number: '1', lead_source: 'Walk-in' });
+    }
+    assert.deepEqual(store.dailySummary('2026-11-18').find(({ venue }) => venue === 'Basque'), {
+      venue: 'Basque', entries: 0, guests: 0,
+    });
+  } finally {
+    store.close();
+  }
+});
+
 test('escapes CSV formulas and quotes', () => {
   assert.equal(escapeCsvCell('=IMPORTXML("bad")'), '"\'=IMPORTXML(""bad"")"');
   assert.equal(escapeCsvCell('Aditi, Sharma'), '"Aditi, Sharma"');
@@ -149,6 +199,7 @@ test('stores production leads in Postgres', async () => {
 
     async query(text, values = []) {
       queries.push({ text, values });
+      if (text.includes('GROUP BY outlet')) return { rows: [{ outlet: 'Basque', entries: '2', guests: '7' }] };
       if (text.includes('INSERT INTO leads')) return { rows: [{ id: '7' }] };
       if (text.includes('COUNT(*)')) return { rows: [{ total: '2' }] };
       if (text.includes('SELECT id')) {
@@ -195,11 +246,14 @@ test('stores production leads in Postgres', async () => {
     lead_source: 'Dineout',
     created_at: '2026-09-25T10:00:00.000Z',
   }]);
+  assert.deepEqual((await store.dailySummary('2026-10-01')).find(({ venue }) => venue === 'Basque'), {
+    venue: 'Basque', entries: 2, guests: 7,
+  });
   await store.close();
 
   assert.match(queries[0].text, /CREATE TABLE IF NOT EXISTS leads/);
   assert.deepEqual(queries.find(({ text }) => text.includes('INSERT INTO leads')).values, ['Aditi Sharma', '9876543210', 'Basque', 3, '2026-10-01', 'A-7', 'Dineout']);
-  assert.deepEqual(queries.at(-1).values, ['Basque']);
+  assert.deepEqual(queries.find(({ text }) => text.includes('GROUP BY outlet')).values, ['2026-10-01']);
   assert.equal(closed, true);
 });
 

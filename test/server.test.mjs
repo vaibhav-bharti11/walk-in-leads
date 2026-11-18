@@ -19,6 +19,7 @@ async function startTestApp(options = {}) {
       embassy: 'embassy test password',
     },
     sessionSecret: 'test-session-secret-that-is-long-enough',
+    dashboardToken: 'test-dashboard-integration-token',
     secureCookies: false,
     ...options,
   });
@@ -133,6 +134,53 @@ test('captures a lead and rejects invalid or oversized input', async () => {
     });
     assert.equal(malformed.status, 400);
     assert.deepEqual(await malformed.json(), { error: 'Send valid JSON.' });
+  } finally {
+    await app.close();
+  }
+});
+
+test('dashboard summary rejects a missing or incorrect bearer token', async () => {
+  const app = await startTestApp();
+  try {
+    const url = `${app.baseUrl}/api/integrations/dashboard/today?date=2026-11-18`;
+    assert.equal((await fetch(url)).status, 401);
+    assert.equal((await fetch(url, { headers: { authorization: 'Bearer incorrect-token' } })).status, 401);
+  } finally {
+    await app.close();
+  }
+});
+
+test('dashboard summary rejects an invalid date', async () => {
+  const app = await startTestApp();
+  try {
+    const response = await fetch(`${app.baseUrl}/api/integrations/dashboard/today?date=2026-02-30`, {
+      headers: { authorization: 'Bearer test-dashboard-integration-token' },
+    });
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { error: 'Choose a valid date.' });
+  } finally {
+    await app.close();
+  }
+});
+
+test('dashboard summary returns aggregate fields without guest identity', async () => {
+  const app = await startTestApp();
+  try {
+    await request(`${app.baseUrl}/api/leads`, { method: 'POST', json: {
+      name: 'Private Guest', mobile: '9876543210', outlet: 'Kampai', pax: 4,
+      visit_date: '2026-11-18', table_number: '8', lead_source: 'Walk-in',
+    } });
+    const response = await fetch(`${app.baseUrl}/api/integrations/dashboard/today?date=2026-11-18`, {
+      headers: { authorization: 'Bearer test-dashboard-integration-token' },
+    });
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+    const body = await response.json();
+    assert.equal(body.date, '2026-11-18');
+    assert.match(body.generatedAt, /^2026-|^20\d\d-/);
+    assert.deepEqual(body.venues.find(({ venue }) => venue === 'Kampai'), { venue: 'Kampai', entries: 1, guests: 4 });
+    assert.deepEqual(Object.keys(body).sort(), ['date', 'generatedAt', 'venues']);
+    assert.doesNotMatch(JSON.stringify(body), /Private Guest|9876543210|table_number|mobile/i);
   } finally {
     await app.close();
   }

@@ -38,6 +38,7 @@ values. Production startup refuses to run without all admin passwords and the se
 | `PORT` | No | `3000` |
 | `DATABASE_PATH` | No | `data/leads.db` |
 | `DATABASE_URL` | No | Uses SQLite when absent; Antideploy supplies Postgres |
+| `DASHBOARD_INTEGRATION_TOKEN` | Yes for dashboard integration | Server-to-server bearer token for the aggregate-only daily summary |
 | `GOOGLE_SHEET_ID` | No | Google Spreadsheet ID (from spreadsheet URL) |
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` | No | Google Cloud Service Account email |
 | `GOOGLE_PRIVATE_KEY` | No | Google Cloud Service Account RSA private key (with `\n` preserved) |
@@ -114,6 +115,12 @@ with more than one guest is blocked and asks for a different number. Another ent
 with exactly one guest is allowed, as are visits on different dates. The rule is
 enforced in the database write as well as the form, including simultaneous saves.
 Older entries without a visit date use their registration date in Asia/Kolkata.
+
+## Avantika dashboard integration
+
+`GET /api/integrations/dashboard/today?date=YYYY-MM-DD` returns entry and guest totals for every configured outlet, including zero-value outlets. Send `Authorization: Bearer <DASHBOARD_INTEGRATION_TOKEN>`.
+
+The response is aggregate-only: `{ date, venues: [{ venue, entries, guests }], generatedAt }`. It never includes guest names, mobile numbers, table numbers, or booking sources. Configure a unique production token and keep it in server-side environment variables only.
 
 Open **Customer visits & repeat guests** in the admin ledger to see unique customers,
 exactly two visits, two or more visits, and visits across multiple outlets. Expand a

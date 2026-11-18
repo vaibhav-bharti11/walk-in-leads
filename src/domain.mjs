@@ -145,6 +145,10 @@ export function createLeadStore(filename) {
   const listOutlet = database.prepare('SELECT id, name, mobile, outlet, pax, visit_date, table_number, lead_source, created_at FROM leads WHERE outlet = ? ORDER BY id DESC');
   const countAll = database.prepare('SELECT COUNT(*) AS total FROM leads');
   const countOutlet = database.prepare('SELECT COUNT(*) AS total FROM leads WHERE outlet = ?');
+  const summarizeDay = database.prepare(`SELECT outlet, COUNT(*) AS entries, SUM(COALESCE(pax, 1)) AS guests
+    FROM leads
+    WHERE COALESCE(visit_date, date(created_at, '+5 hours', '+30 minutes')) = ?
+    GROUP BY outlet`);
 
   return {
     matchCustomers(input) {
@@ -169,6 +173,14 @@ export function createLeadStore(filename) {
     count({ outlet } = {}) {
       checkedOutlet(outlet);
       return Number((outlet ? countOutlet.get(outlet) : countAll.get()).total);
+    },
+    dailySummary(date) {
+      const rows = new Map(summarizeDay.all(date).map((row) => [row.outlet, row]));
+      return OUTLETS.map((venue) => ({
+        venue,
+        entries: Number(rows.get(venue)?.entries || 0),
+        guests: Number(rows.get(venue)?.guests || 0),
+      }));
     },
     close() {
       database.close();
@@ -259,6 +271,18 @@ export async function createPostgresLeadStore(connectionString, PoolClass = Pool
         ? await pool.query('SELECT COUNT(*) AS total FROM leads WHERE outlet = $1', [outlet])
         : await pool.query('SELECT COUNT(*) AS total FROM leads');
       return Number(rows[0].total);
+    },
+    async dailySummary(date) {
+      const { rows } = await pool.query(`SELECT outlet, COUNT(*) AS entries, SUM(COALESCE(pax, 1)) AS guests
+        FROM leads
+        WHERE COALESCE(visit_date, (created_at AT TIME ZONE 'Asia/Kolkata')::date) = $1::date
+        GROUP BY outlet`, [date]);
+      const byOutlet = new Map(rows.map((row) => [row.outlet, row]));
+      return OUTLETS.map((venue) => ({
+        venue,
+        entries: Number(byOutlet.get(venue)?.entries || 0),
+        guests: Number(byOutlet.get(venue)?.guests || 0),
+      }));
     },
     close() {
       return pool.end();

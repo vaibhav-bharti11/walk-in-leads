@@ -1,4 +1,4 @@
-import { createHmac, scryptSync, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, scryptSync, timingSafeEqual } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
@@ -89,6 +89,17 @@ function safePasswordEqual(candidate, expected, salt) {
   return timingSafeEqual(left, right);
 }
 
+function safeTokenEqual(candidate, expected) {
+  const digest = (value) => createHash('sha256').update(String(value ?? '')).digest();
+  return timingSafeEqual(digest(candidate), digest(expected));
+}
+
+function validDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return false;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
 function createSessionTools(secret) {
   function sign(payload) {
     return createHmac('sha256', secret).update(payload).digest('base64url');
@@ -143,6 +154,7 @@ export function createApp({
   googlePrivateKey = process.env.GOOGLE_PRIVATE_KEY,
   googleSheetName = process.env.GOOGLE_SHEET_NAME || 'Sheet1',
   googleSheetWebhookUrl = process.env.GOOGLE_SHEET_WEBHOOK_URL,
+  dashboardToken = process.env.DASHBOARD_INTEGRATION_TOKEN,
 }) {
   if (!leadStore) mkdirSync(dirname(databasePath), { recursive: true });
   const store = leadStore || createLeadStore(databasePath);
@@ -186,6 +198,21 @@ export function createApp({
     response.setHeader('x-frame-options', 'DENY');
     if (secureCookies) response.setHeader('strict-transport-security', 'max-age=31536000; includeSubDomains');
     try {
+      if (url.pathname === '/api/integrations/dashboard/today' && request.method === 'GET') {
+        if (!dashboardToken) return json(response, 503, { error: 'Dashboard integration is not configured.' });
+        const authorization = String(request.headers.authorization || '');
+        const candidate = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
+        if (!candidate || !safeTokenEqual(candidate, dashboardToken)) {
+          return json(response, 401, { error: 'Dashboard integration authorization required.' });
+        }
+        const date = url.searchParams.get('date') || '';
+        if (!validDate(date)) return json(response, 400, { error: 'Choose a valid date.' });
+        return json(response, 200, {
+          date,
+          venues: await store.dailySummary(date),
+          generatedAt: new Date().toISOString(),
+        });
+      }
       if (url.pathname === '/api/reservation-venues' && request.method === 'GET') return json(response,200,{ venues: VENUES });
       if (url.pathname === '/api/reservations' && request.method === 'POST') {
         if (!reservations) return json(response,503,{error:'Reservations unavailable.'});
